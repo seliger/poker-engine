@@ -237,3 +237,28 @@ class TestDeckSerialization:
         assert len(d["available"]) == 48
         assert len(d["dealt"]) == 3
         assert len(d["burned"]) == 1
+
+    def test_cards_restored_to_correct_pools(self) -> None:
+        """Each card lands in the expected pool after serialize/deserialize."""
+        deck = Deck(DeckConfig.STANDARD())
+        dealt_cards = deck.deal(3)
+        burned_card = deck.burn()
+
+        restored = Deck.from_dict(deck.to_dict())
+        snapshot = restored.to_dict()
+
+        def key(rank: int, suit_name: str) -> tuple[int, str]:
+            return (rank, suit_name)
+
+        dealt_keys = {key(c["rank"], c["suit"]) for c in snapshot["dealt"]}
+        burned_keys = {key(c["rank"], c["suit"]) for c in snapshot["burned"]}
+        available_keys = {key(c["rank"], c["suit"]) for c in snapshot["available"]}
+
+        for card in dealt_cards:
+            assert key(card.rank, card.suit.name) in dealt_keys
+            assert key(card.rank, card.suit.name) not in available_keys
+            assert key(card.rank, card.suit.name) not in burned_keys
+
+        assert key(burned_card.rank, burned_card.suit.name) in burned_keys
+        assert key(burned_card.rank, burned_card.suit.name) not in available_keys
+        assert key(burned_card.rank, burned_card.suit.name) not in dealt_keys

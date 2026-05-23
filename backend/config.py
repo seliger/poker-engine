@@ -58,30 +58,24 @@ def load_deck_config() -> DeckConfig:
     null_rules: dict[str, Any] = deck_section.get("null_rules", {})
     preset_name: str = deck_section.get("default_config", "STANDARD")
 
-    preset_map = {
-        "STANDARD": DeckConfig.STANDARD,
-        "WITH_NULLS": DeckConfig.WITH_NULLS,
-        "WITH_ORBS": DeckConfig.WITH_ORBS,
+    # Base include_orbs / include_nulls flags come from the named preset.
+    _preset_bases: dict[str, dict[str, bool]] = {
+        "STANDARD":   {"include_orbs": False, "include_nulls": False},
+        "WITH_NULLS": {"include_orbs": False, "include_nulls": True},
+        "WITH_ORBS":  {"include_orbs": True,  "include_nulls": False},
     }
-    if preset_name not in preset_map:
+    if preset_name not in _preset_bases:
         raise HouseRulesConfigurationError(
             f"Unknown deck default_config '{preset_name}'; "
-            f"must be one of {list(preset_map)}"
+            f"must be one of {list(_preset_bases)}"
         )
 
-    config = preset_map[preset_name]()
-
-    config.nulls_match_each_other = null_rules.get(
-        "nulls_match_each_other", config.nulls_match_each_other
+    base = _preset_bases[preset_name]
+    return DeckConfig(
+        include_orbs=base["include_orbs"],
+        include_nulls=base["include_nulls"],
+        null_exists_in_orbs=null_rules.get("null_exists_in_orbs", False),
+        nulls_match_each_other=null_rules.get("nulls_match_each_other", False),
+        wilds_can_become_null=null_rules.get("wilds_can_become_null", False),
+        low_card_warning_threshold=deck_section.get("low_card_warning_threshold", 10),
     )
-    config.wilds_can_become_null = null_rules.get(
-        "wilds_can_become_null", config.wilds_can_become_null
-    )
-    config.null_exists_in_orbs = null_rules.get(
-        "null_exists_in_orbs", config.null_exists_in_orbs
-    )
-    config.low_card_warning_threshold = deck_section.get(
-        "low_card_warning_threshold", config.low_card_warning_threshold
-    )
-
-    return config

@@ -148,6 +148,10 @@ class Deck:
         """The DeckConfig this deck was constructed with."""
         return self._config
 
+    def cards(self) -> list[Card]:
+        """Return a copy of the currently available (undealt) cards."""
+        return list(self._available)
+
     # ------------------------------------------------------------------
     # Serialization
     # ------------------------------------------------------------------
