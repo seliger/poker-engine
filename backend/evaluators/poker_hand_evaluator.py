@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 import random
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace as _dc_replace
 from itertools import combinations
 from typing import Any
 
@@ -365,7 +365,8 @@ class PokerHandEvaluator(BaseEvaluator):
                 )
                 if not result.is_partial:
                     counts[result.hand_rank] += 1
-            except Exception:
+            except Exception as exc:
+                logger.warning("Monte Carlo sample skipped during frequency calculation: %s", exc)
                 continue
 
         total = sum(counts.values())
@@ -452,8 +453,7 @@ class PokerHandEvaluator(BaseEvaluator):
                         best = hand
 
         assert best is not None
-        best.all_combinations = all_combos
-        return best
+        return _dc_replace(best, all_combinations=all_combos)
 
     def _evaluate_partial(
         self,
@@ -560,7 +560,14 @@ class PokerHandEvaluator(BaseEvaluator):
         pk_card: Any,
         card_index: dict[tuple[int, Suit], Card],
     ) -> Card:
-        """Convert a PokerKit Card back to our Card using a pre-built index."""
+        """Convert a PokerKit Card back to our Card using a pre-built index.
+
+        Phase 3 note: card_index is built only from the caller's input cards.
+        Wild card resolution may assign a card not in that set, causing a
+        KeyError here.  Before implementing wild resolution, extend card_index
+        to cover the full deck universe or bypass PokerKit card objects for
+        wild assignments entirely.
+        """
         our_rank = _PK_RANK_TO_OURS[pk_card.rank]
         our_suit = _PK_SUIT_TO_OURS[pk_card.suit]
         return card_index[(our_rank, our_suit)]
