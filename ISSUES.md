@@ -66,3 +66,6 @@ _Add new items here as they are discovered during code review._
 
 - [x] **L** `tests/deck/test_deck.py` TestDeckSerialization: Missing pool
   correctness test. Added `test_cards_restored_to_correct_pools` in Phase 2.
+
+## Current Status
+Phase 1 Step 2 complete. Next: Phase 1 Step 3 (Tier 1 bot).
