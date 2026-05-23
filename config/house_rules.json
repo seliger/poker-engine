@@ -1,0 +1,208 @@
+{
+    "_comment": "Poker Engine: Home Game Edition - House Rules Configuration",
+    "_version": "1.1",
+    "_documentation": "See docs/00_architecture_overview.md for full configuration reference.",
+
+    "deck": {
+        "default_config": "STANDARD",
+        "_comment_default_config": "STANDARD | WITH_NULLS | WITH_ORBS",
+        "player_count_thresholds": {
+            "standard_max": 6,
+            "nulls_max": 7,
+            "orbs_max": 9
+        },
+        "null_rules": {
+            "nulls_match_each_other": false,
+            "_comment_nulls_match": "If true, two Null cards form a pair. Default false per table consensus.",
+            "wilds_can_become_null": true,
+            "_comment_wilds_null": "If true, a wild card may declare itself as a Null of any suit.",
+            "null_exists_in_orbs": false,
+            "_comment_null_orbs": "If true, a Null of Orbs is included when both Nulls and Orbs are active."
+        },
+        "low_card_warning_threshold": 10,
+        "_comment_warning": "Emit low card warning when deck has fewer than this many cards remaining."
+    },
+
+    "evaluation": {
+        "royal_flush_beats_straight_flush": false,
+        "_comment_royal": "If true, Royal Flush outranks other Straight Flushes for pot purposes.",
+        "hand_frequency_sample_size": 100000,
+        "_comment_sample": "Monte Carlo sample size for hand frequency calculation."
+    },
+
+    "declare": {
+        "both_ways_requires_scoop": true,
+        "_comment_scoop": "If true, declaring Both Ways requires winning both directions or player receives nothing."
+    },
+
+    "guts": {
+        "burn_limit_per_player": 6.00,
+        "_comment_burn": "Maximum cumulative cascade payment per player per session in dollars.",
+        "currency_unit": "dollars",
+        "hand_size": 4,
+        "_comment_hand_size": "Number of cards dealt per player. Your group has played up to 10."
+    },
+
+    "poulet": {
+        "win_threshold": 3,
+        "_comment_win": "Number of tricks required to win the hand.",
+        "total_tricks": 5,
+        "_comment_tricks": "Total tricks played per hand. Equals cards dealt per player.",
+        "burn_limit_per_player": 6.00,
+        "_comment_burn": "Maximum cumulative zero-trick penalty per player per session in dollars.",
+        "currency_unit": "dollars",
+        "all_fold_carries_pot": true,
+        "_comment_all_fold": "If true, pot carries when all players fold before trick play.",
+        "single_player_auto_wins": true,
+        "_comment_single": "If true, last remaining player after declarations wins automatically."
+    },
+
+    "chips": {
+        "default_starting_stack": 100,
+        "currency_label": "chips",
+        "_comment_chips": "Label used in UI and ledger. Purely cosmetic."
+    },
+
+    "betting": {
+        "ante_amount": 1,
+        "bring_in_amount": 1,
+        "small_bet": 2,
+        "big_bet": 4,
+        "_comment_betting": "Default bet amounts. Variants may override these."
+    },
+
+    "night_baseball": {
+        "wild_ranks": [3, 9],
+        "_comment_wilds": "Ranks that are wild in Baseball variants. 3s and 9s by default.",
+        "extra_card_rank": 4,
+        "_comment_extra": "Rank that grants an extra card. 4s by default.",
+        "pay_to_pass_amount": 1,
+        "_comment_pass": "Amount paid to pass in Night Baseball without beating current high hand."
+    },
+
+    "elevator": {
+        "diagonals_active_by_default": false,
+        "_comment_diagonals": "If true, diagonal floor selections are pre-enabled. Dealer may override per hand."
+    },
+
+    "pilot": {
+        "hole_card_count": 4,
+        "table_card_count": 7
+    },
+
+    "anaconda": {
+        "initial_deal": 7,
+        "pass_counts": [3, 2, 1],
+        "_comment_pass": "Cards passed left in each successive pass round."
+    },
+
+    "auction": {
+        "hole_cards_down": 1,
+        "auction_rounds": 5,
+        "final_card_down": true,
+        "_comment_auction": "First card down, 5 auctioned face-up, last card down."
+    },
+
+    "numeric": {
+        "six_half_twentyone_half": {
+            "targets": [6.5, 21.5],
+            "_comment": "Targets for Six-and-a-Half / Twenty-one-and-a-Half."
+        },
+        "seven_twentyseven": {
+            "targets": [7, 27],
+            "_comment": "Targets for Seven / Twenty-Seven."
+        }
+    },
+
+    "bot": {
+        "count": 5,
+        "_comment_count": "Number of bot opponents at the table.",
+        "aggression": 0.5,
+        "_comment_aggression": "Base aggression level 0.0 to 1.0. Each bot varies slightly from this.",
+        "bluff_frequency": 0.15,
+        "_comment_bluff": "Base bluff frequency 0.0 to 1.0.",
+        "risk_tolerance": 0.5,
+        "_comment_risk": "Base risk tolerance 0.0 to 1.0.",
+        "personality_variance": 0.1,
+        "_comment_variance": "Random variance applied to each bot personality parameters.",
+        "thinking_delay_ms": 800,
+        "_comment_delay": "Simulated thinking delay in milliseconds. Makes bot feel more natural.",
+        "use_monte_carlo": false,
+        "_comment_monte_carlo": "If true, use Tier 2 Monte Carlo bot instead of Tier 1 rule-based.",
+        "use_claude_api": false,
+        "_comment_claude": "If true, use Tier 3 Claude API bot. Falls back to Tier 1 on timeout.",
+        "claude_model": "claude-sonnet-4-20250514",
+        "claude_api_timeout_seconds": 5,
+        "claude_reasoning_visible": true,
+        "_comment_reasoning": "If true, display Claude API bot reasoning in UI when available."
+    },
+
+    "modifiers": {
+        "dirty_bitch": {
+            "enabled": false,
+            "_comment": "Queen of Spades triggers redeal. Dealer enables per hand.",
+            "trigger_card": {
+                "rank": 12,
+                "suit": "SPADES"
+            },
+            "pre_action_pot_instruction": "REANTE_ON_TOP",
+            "_comment_pre": "Before any betting: redeal and re-ante on top of existing pot.",
+            "post_action_pot_instruction": "CARRY",
+            "_comment_post": "After betting has occurred: redeal, pot carries."
+        },
+        "follow_the_queen": {
+            "enabled": false,
+            "_comment": "Queen face-up changes wild rank to next card dealt. Dealer enables per hand."
+        },
+        "high_low_declare": {
+            "enabled": false,
+            "_comment": "Adds high-low chip declare at showdown. Applicable to any poker variant.",
+            "both_ways_requires_scoop": true
+        },
+        "modifier_stacking": false,
+        "_comment_stacking": "If true, multiple modifiers may fire on the same card event. Default false.",
+        "_comment_poulet": "Modifiers are not applied to Poulet. See Architecture Overview v1.3."
+    },
+
+    "variants": {
+        "enabled": [
+            "SEVEN_CARD_STUD",
+            "FIVE_CARD_DRAW",
+            "CHICAGO",
+            "LOW_CHICAGO",
+            "NIGHT_BASEBALL",
+            "JOES_BASEBALL",
+            "ELEVATOR",
+            "PILOT",
+            "ANACONDA",
+            "CHASING_QUEENS",
+            "AUCTION",
+            "GUTS",
+            "SCREW_YOUR_NEIGHBOR",
+            "CRISS_CROSS",
+            "ROLL_YOUR_OWN",
+            "SIX_HALF_TWENTYONE_HALF",
+            "SEVEN_TWENTYSEVEN",
+            "POULET"
+        ],
+        "_comment": "Remove a variant name to disable it from the dealer selection screen."
+    },
+
+    "session": {
+        "human_player_id": null,
+        "_comment_player": "Set automatically at session start. Used for local single-player mode.",
+        "auto_advance_bot_turns": true,
+        "_comment_advance": "If true, bot turns resolve automatically without player confirmation."
+    },
+
+    "ui": {
+        "show_hand_strength_hint": true,
+        "_comment_hint": "If true, show partial hand evaluation above player cards during play.",
+        "show_bot_reasoning": true,
+        "_comment_reasoning": "If true, show Claude API bot reasoning when available.",
+        "modifier_notification_duration_ms": 4000,
+        "_comment_notification": "How long modifier fired notifications display before auto-dismissing.",
+        "sound_effects_enabled": false,
+        "_comment_sound": "Phase 7 feature. No-op until sound effects are implemented."
+    }
+}
