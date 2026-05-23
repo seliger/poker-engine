@@ -462,15 +462,20 @@ Enforced by the Game Layer using DeclareResult from the evaluator.
 
 ---
 
-## Starting Point
+## Standing Instructions for All Phases
+1. Before writing any new code, read the existing Phase 1 code to 
+understand patterns already established: the three-pool Deck, the frozen Card dataclass, the config loader fallback chain. Extend these patterns consistently rather than reinventing them.
 
-Begin with Phase 1, Step 1: the Deck Layer.
+2. Do not access private attributes (leading underscore) in test files. 
+If a private attribute needs to be inspected in a test, add a public method or property to the class and test through that instead.
 
-Read docs/01_deck_layer.md completely before writing any code.
-Implement backend/deck/card.py, backend/deck/deck.py, and
-backend/config.py (DeckConfig only) per that specification.
-Write all unit tests specified in the Deck Layer document in
-tests/deck/.
+3. No async/await anywhere. If you find yourself reaching for async, 
+stop and find a synchronous solution.
 
-Report completion and test results. Wait for confirmation before
-proceeding to Phase 1, Step 2.
+4. PokerKit is imported only in backend/evaluators/poker_hand_evaluator.
+py. No other file imports PokerKit directly under any circumstances.
+
+5. Every new module must have a docstring explaining its scope and which 
+layer it belongs to. See existing files for the pattern.
+
+---
