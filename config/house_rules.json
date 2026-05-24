@@ -1,6 +1,6 @@
 {
     "_comment": "Poker Engine: Home Game Edition - House Rules Configuration",
-    "_version": "1.1",
+    "_version": "1.2",
     "_documentation": "See docs/00_architecture_overview.md for full configuration reference.",
 
     "deck": {
@@ -57,27 +57,37 @@
         "_comment_single": "If true, last remaining player after declarations wins automatically."
     },
 
-    "chips": {
-        "default_starting_stack": 100,
-        "currency_label": "chips",
-        "_comment_chips": "Label used in UI and ledger. Purely cosmetic."
-    },
-
-    "betting": {
-        "ante_amount": 1,
-        "bring_in_amount": 1,
-        "small_bet": 2,
-        "big_bet": 4,
-        "_comment_betting": "Default bet amounts. Variants may override these."
+    "chicago": {
+        "take_last_up_cost": 1.00,
+        "_comment_take_last_up": "Cost in dollars to take the river card face-up instead of face-down.",
+        "currency_unit": "dollars"
     },
 
     "night_baseball": {
         "wild_ranks": [3, 9],
-        "_comment_wilds": "Ranks that are wild in Baseball variants. 3s and 9s by default.",
-        "extra_card_rank": 4,
-        "_comment_extra": "Rank that grants an extra card. 4s by default.",
+        "_comment_wilds": "Ranks that are wild. 3s and 9s by default.",
+        "four_card_price_schedule": "QUARTER_SCHEDULE",
+        "_comment_schedule": "QUARTER_SCHEDULE: $0.25, $0.50, $0.75, $1.00 | DOLLAR_SCHEDULE: $1.00, $2.00, $3.00, $4.00",
+        "four_card_price_schedules": {
+            "QUARTER_SCHEDULE": [0.25, 0.50, 0.75, 1.00],
+            "DOLLAR_SCHEDULE": [1.00, 2.00, 3.00, 4.00]
+        },
+        "_comment_four_card": "Price escalates with each 4 that appears at the table regardless of buy or pass.",
         "pay_to_pass_amount": 1,
         "_comment_pass": "Amount paid to pass in Night Baseball without beating current high hand."
+    },
+
+    "joes_baseball": {
+        "wild_ranks": [2, 11],
+        "_comment_wilds": "2s and Jacks are wild. Rank 11 = Jack.",
+        "wild_cards": [{"rank": 13, "suit": "DIAMONDS"}],
+        "_comment_wild_cards": "King of Diamonds (man with the axe) is wild as a specific card, not a rank.",
+        "natural_sevens_active": true,
+        "_comment_natural_sevens": "If true, a natural pair of 7s (two physical 7s of different suits) beats all other hands.",
+        "four_card_price_schedule": "QUARTER_SCHEDULE",
+        "_comment_schedule": "Uses the same price schedules as night_baseball.",
+        "take_last_up_cost": 0.00,
+        "_comment_take_last_up": "Cost to take river card face-up. Free in Joe's Baseball."
     },
 
     "elevator": {
@@ -114,6 +124,20 @@
         }
     },
 
+    "chips": {
+        "default_starting_stack": 100,
+        "currency_label": "chips",
+        "_comment_chips": "Label used in UI and ledger. Purely cosmetic."
+    },
+
+    "betting": {
+        "ante_amount": 1,
+        "bring_in_amount": 1,
+        "small_bet": 2,
+        "big_bet": 4,
+        "_comment_betting": "Default bet amounts. Variants may override these."
+    },
+
     "bot": {
         "count": 5,
         "_comment_count": "Number of bot opponents at the table.",
@@ -124,7 +148,7 @@
         "risk_tolerance": 0.5,
         "_comment_risk": "Base risk tolerance 0.0 to 1.0.",
         "personality_variance": 0.1,
-        "_comment_variance": "Random variance applied to each bot personality parameters.",
+        "_comment_variance": "Random variance applied to each bot's personality parameters.",
         "thinking_delay_ms": 800,
         "_comment_delay": "Simulated thinking delay in milliseconds. Makes bot feel more natural.",
         "use_monte_carlo": false,
@@ -198,6 +222,8 @@
     "ui": {
         "show_hand_strength_hint": true,
         "_comment_hint": "If true, show partial hand evaluation above player cards during play.",
+        "show_personal_wild": true,
+        "_comment_wild": "If true, show the player's current personal wild rank in Chicago.",
         "show_bot_reasoning": true,
         "_comment_reasoning": "If true, show Claude API bot reasoning when available.",
         "modifier_notification_duration_ms": 4000,

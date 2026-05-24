@@ -1,6 +1,6 @@
 # Game Layer Requirements
 ## Poker Engine: Home Game Edition
-### Version 1.0
+### Version 1.1
 
 ---
 
@@ -59,8 +59,11 @@ GameState {
     action_has_occurred: bool
     redeal_count: int
     hand_history: list[GameEvent]
+    four_card_buy_count: int
 }
 ```
+
+`four_card_buy_count` tracks how many 4s have appeared at the table this hand, regardless of whether players bought or passed. Used by NightBaseballVariant and JoesBaseballVariant for escalating buy price calculation. Initialized to 0 at hand start. 0 in all other variants.
 
 ### PlayerState
 
@@ -80,8 +83,11 @@ PlayerState {
     declaration: Declaration | None
     in_guts: bool | None
     cards_to_discard: list[Card]
+    personal_wild_rank: int | None
 }
 ```
+
+`personal_wild_rank` is the current personal wild rank for this player. None if the player has no face-down cards or the variant does not use personal wilds. Recalculated after every deal or reveal event. ChicagoVariant only. None in all other variants.
 
 ### PositionedCard
 
@@ -137,7 +143,7 @@ LayoutType {
 }
 ```
 
-get_valid_selections() returns the list of valid card index groups a player may use given the layout type. For ELEVATOR it returns three row selections plus two diagonal selections if diagonals_active is True. For CROSS it returns the horizontal and vertical selections. For POOL it returns all possible combinations up to the variant's maximum community card use count.
+`get_valid_selections()` returns the list of valid card index groups a player may use given the layout type. For ELEVATOR it returns three row selections plus two diagonal selections if `diagonals_active` is True. For CROSS it returns the horizontal and vertical selections. For POOL it returns all possible combinations up to the variant's maximum community card use count.
 
 ### BettingState
 
@@ -215,12 +221,15 @@ GamePhase {
     GUTS_CASCADE
     NUMERIC_DRAW
     NUMERIC_BET
+    TAKE_LAST_UP_OFFER
     DECLARE
     SHOWDOWN
     POT_DISTRIBUTION
     COMPLETE
 }
 ```
+
+`TAKE_LAST_UP_OFFER` is the phase during which each player is offered the TAKE_LAST_CARD_UP action before their final river card is dealt. Used by ChicagoVariant and JoesBaseballVariant.
 
 ### GameEvent
 
@@ -258,6 +267,11 @@ EventType {
     WILD_CHANGED
     MODIFIER_FIRED
     DECLARATION_MADE
+    FOUR_CARD_BUY_OFFERED
+    FOUR_CARD_BUY_ACCEPTED
+    FOUR_CARD_BUY_PASSED
+    TAKE_LAST_UP_ACCEPTED
+    TAKE_LAST_UP_DECLINED
     SHOWDOWN
     POT_AWARDED
     REDEAL_TRIGGERED
@@ -295,8 +309,11 @@ PlayerView {
     active_modifiers: list[str]
     legal_actions: list[LegalAction]
     hand_strength: PartialHandStrength | None
+    my_personal_wild_rank: int | None
 }
 ```
+
+`my_personal_wild_rank` is the requesting player's current personal wild rank. None in all variants except Chicago. Included in PlayerView so the UI can display the active wild to the human player.
 
 ### OpponentView
 
@@ -315,7 +332,7 @@ OpponentView {
 }
 ```
 
-OpponentView never includes hole cards that are face down. visible_cards contains only cards where is_face_up is True on the PositionedCard.
+OpponentView never includes hole cards that are face down. `visible_cards` contains only cards where `is_face_up` is True on the PositionedCard. OpponentView never includes `personal_wild_rank`. A player's personal wild rank is private information derived from their face-down cards, which are never visible to opponents.
 
 ### LegalAction
 
@@ -344,14 +361,18 @@ ActionType {
     DECLARE_LOW
     DECLARE_BOTH
     DISCARD
+    TAKE_LAST_CARD_UP
+    PASS_LAST_CARD_UP
+    BUY_FOUR_CARD
+    PASS_FOUR_CARD
 }
 ```
 
-The legal_actions list on PlayerView contains exactly the actions available to the requesting player at the current moment. The UI renders only these actions. The Game Layer rejects any submitted action not in the legal actions list for the current player.
+The `legal_actions` list on PlayerView contains exactly the actions available to the requesting player at the current moment. The UI renders only these actions. The Game Layer rejects any submitted action not in the legal actions list for the current player.
 
 ### Hand Strength Hint
 
-The PlayerView includes an optional hand_strength field containing a partial evaluation of the player's current visible hand. This is the training aid for the human player, showing what hand they currently hold without telling them what to do.
+The PlayerView includes an optional `hand_strength` field containing a partial evaluation of the player's current visible hand. This is the training aid for the human player, showing what hand they currently hold without telling them what to do.
 
 ```
 PartialHandStrength {
@@ -363,7 +384,63 @@ PartialHandStrength {
 }
 ```
 
-For poker hand variants the display_name is something like "Two Pair, Aces and Eights." For numeric variants the current_total shows the current point total. The notes field can carry contextual information like "Null anchors a potential straight flush."
+For poker hand variants the `display_name` is something like "Two Pair, Aces and Eights." For numeric variants the `current_total` shows the current point total. The `notes` field can carry contextual information like "Null anchors a potential straight flush" or "Personal wild: 3s."
+
+---
+
+## Shared Action: TAKE_LAST_CARD_UP
+
+TAKE_LAST_CARD_UP is a voluntary action available in ChicagoVariant and JoesBaseballVariant where a player may elect to receive their final card face-up instead of face-down. The motivation differs by variant but the Game Layer action is identical.
+
+When a player selects TAKE_LAST_CARD_UP:
+
+- The final card is dealt face-up and visible to all players
+- Any cost associated with the action is paid into the pot
+- The action is offered as a legal action before the final card is dealt, not after
+- A player who selects PASS_LAST_CARD_UP receives their final card face-down per normal dealing rules
+- The action is irrevocable once taken
+
+Cost per variant:
+
+```
+ChicagoVariant:        $1, configurable via house_rules.json chicago.take_last_up_cost
+JoesBaseballVariant:   free, no cost
+```
+
+---
+
+## Shared Mechanic: Four Card Escalating Buy
+
+NightBaseballVariant and JoesBaseballVariant share an escalating buy mechanic triggered when a player flips or is dealt a 4.
+
+When a 4 appears:
+
+1. `four_card_buy_count` on GameState increments immediately, before the buy offer is made
+2. The current buy price is calculated from `four_card_buy_count` and the active price schedule
+3. The player is offered BUY_FOUR_CARD or PASS_FOUR_CARD as legal actions
+4. If BUY_FOUR_CARD is selected, the player pays the current price into the pot and receives one additional card face-down from the deck
+5. If PASS_FOUR_CARD is selected, the 4 remains in the player's hand as a non-wild card and no card is received
+6. Either way `four_card_buy_count` has already incremented for the next 4
+
+Price schedule calculation:
+
+```python
+def get_four_card_buy_price(
+    four_card_buy_count: int,
+    price_schedule: list[float]
+) -> float:
+    index = min(four_card_buy_count - 1, len(price_schedule) - 1)
+    return price_schedule[index]
+```
+
+Price schedules configured in house_rules.json:
+
+```
+QUARTER_SCHEDULE:   [0.25, 0.50, 0.75, 1.00]
+DOLLAR_SCHEDULE:    [1.00, 2.00, 3.00, 4.00]
+```
+
+The price caps at the final schedule entry for all subsequent 4s. `four_card_buy_count` is reset to 0 at the start of each hand.
 
 ---
 
@@ -419,7 +496,7 @@ BaseVariant (abstract)
     ) -> ShowdownResult
 ```
 
-After each execute_phase() and apply_action() call the Game Layer runs the modifier hook before returning the updated GameState:
+After each `execute_phase()` and `apply_action()` call the Game Layer runs the modifier hook before returning the updated GameState:
 
 ```
 for modifier in game_state.active_game_config.modifiers:
@@ -456,11 +533,9 @@ POT_DISTRIBUTION
 COMPLETE
 ```
 
-**Bring-in rule:** The player showing the lowest face-up card by rank posts the bring-in. Ties broken by suit in order CLUBS, DIAMONDS, HEARTS, SPADES, ORBS (lowest to highest). The bring-in amount is defined in house_rules.json.
+**Bring-in rule:** The player showing the lowest face-up card by rank posts the bring-in. Ties broken by suit in order CLUBS, DIAMONDS, HEARTS, SPADES, ORBS (lowest to highest). The bring-in amount is defined in house_rules.json. The first bring-in round is identified by deriving its index from the phase sequence using a single source of truth rather than a hardcoded constant.
 
-**Deck exhaustion:** With 9 players and no folds, deck exhaustion is possible before the river card. If the deck cannot fulfill the river deal, a single community card is dealt face-up as a shared river card for all remaining players. The low_card_warning from the Deck Layer triggers before this point.
-
-**Chicago modifier interaction:** When CHICAGO or LOW_CHICAGO modifier is active, SevenCardStudVariant passes the modifier type to resolve_showdown(), which splits the pot between the high hand winner and the player with the highest (CHICAGO) or lowest (LOW_CHICAGO) spade in the hole.
+**Deck exhaustion:** With 9 players and no folds, deck exhaustion is possible before the river card. If the deck cannot fulfill the river deal, a single community card is dealt face-up as a shared river card for all remaining players. The `low_card_warning` from the Deck Layer triggers before this point.
 
 ---
 
@@ -485,11 +560,71 @@ COMPLETE
 
 #### ChicagoVariant
 
-Chicago is Seven Card Stud with the pot split between the best poker hand and the highest spade in the hole. It is implemented as SevenCardStudVariant with the CHICAGO modifier pre-applied. It is not a separate state machine.
+Chicago is Seven Card Stud with two additional mechanics: the high spade pot split and a personal wild card system. It requires its own variant state machine rather than being a simple modifier on SevenCardStudVariant.
 
 LowChicago is identical with the lowest spade in the hole instead of the highest.
 
-The CHICAGO and LOW_CHICAGO GameVariant entries in the registry point to SevenCardStudVariant with the appropriate modifier pre-configured rather than to a separate variant class.
+**Personal Wild Card Rule:**
+
+Each player's lowest-ranked face-down card determines their personal wild card rank for that hand. Wild cards are personal: they apply only to the individual player's hand evaluation and are not table-wide.
+
+Rules:
+
+- At any point during the hand, a player's wild rank is the lowest rank among all of their currently face-down cards
+- If multiple face-down cards share the lowest rank, all cards of that rank in the player's hand are wild simultaneously. Two 3s face-down means both 3s are wild.
+- As new face-down cards are dealt, the wild designation shifts if the new card has a lower rank than the current wild
+- As face-down cards are revealed (voluntarily or at showdown), the wild designation recalculates based on remaining face-down cards
+- A player with no face-down cards has no personal wild card
+- Wild cards apply to hand building only. They have no bearing on the high spade split determination. The high spade split is determined by the actual physical card, not its wild value.
+
+Wild rank recalculation runs after every deal or reveal event:
+
+```python
+def calculate_personal_wild_rank(
+    player_state: PlayerState
+) -> int | None:
+
+    face_down_ranks = [
+        c.card.rank
+        for c in player_state.hole_cards
+        if not c.is_face_up
+    ]
+
+    if not face_down_ranks:
+        return None
+
+    return min(face_down_ranks)
+```
+
+The personal wild rank is stored on `PlayerState.personal_wild_rank` and passed to the evaluator as `wild_ranks: [personal_wild_rank]` on each `evaluate()` call for that player. Each player's `evaluate()` call uses their own `wild_ranks`. This is the only variant where `wild_ranks` differs per player within the same hand.
+
+**High Spade Split:**
+
+The high spade in the hole wins half the pot. Determination is by the actual physical card only. Wild cards do not affect spade split eligibility. A player holding both the high spade in the hole AND the best poker hand wins the entire pot outright (scoops both halves). If no player holds a spade in the hole, the high spade half of the pot carries to the next hand of Chicago.
+
+**TAKE_LAST_CARD_UP in Chicago:**
+
+Before the river card is dealt face-down, each player is offered the TAKE_LAST_CARD_UP action at a cost of $1 (configurable via `house_rules.json chicago.take_last_up_cost`). A player who takes this action receives their river card face-up. Since the river card will not be face-down, it cannot become or displace their personal wild card. This is the primary strategic motivation: protecting the existing wild designation. A player who selects PASS_LAST_CARD_UP receives their river card face-down per normal rules.
+
+**Phase sequence:**
+```
+SETUP
+ANTE
+INITIAL_DEAL         (2 down, 1 up per player)
+BET_ROUND            (bring-in from lowest face-up card)
+DEAL_ROUND           (1 up)
+BET_ROUND
+DEAL_ROUND           (1 up)
+BET_ROUND
+DEAL_ROUND           (1 up)
+BET_ROUND
+TAKE_LAST_UP_OFFER   (each player offered TAKE_LAST_CARD_UP at $1)
+DEAL_ROUND           (river: face-down unless TAKE_LAST_CARD_UP taken)
+BET_ROUND
+SHOWDOWN
+POT_DISTRIBUTION
+COMPLETE
+```
 
 ---
 
@@ -507,42 +642,68 @@ POT_DISTRIBUTION
 COMPLETE
 ```
 
-**Wild cards:** 3s and 9s are wild. 4s grant an extra card from the deck. These are configured as variant_config rather than hardcoded, allowing house rule variation.
+**Wild cards:** 3s and 9s are wild. These are configured as variant_config rather than hardcoded, allowing house rule variation.
 
 **Flip mechanic:** On each FLIP_ROUND, the active player must flip cards from their face-down hand one at a time until their visible hand beats the current high visible hand at the table, or until they have no face-down cards remaining. The player pays to pass if they cannot or choose not to beat the current high hand. Pay-to-pass amount is configured in house_rules.json.
 
-**4 card mechanic:** When a player flips a 4, they immediately receive one additional card from the deck face-down before continuing their flip sequence.
+**4 card mechanic:** When a player flips a 4, the escalating buy mechanic is triggered per the Shared Mechanic section above. The player may buy one additional card from the deck at the current table price or pass. Either way `four_card_buy_count` increments.
 
 **Standing:** A player may stand at any point during their flip turn, accepting their current hand. Standing is irrevocable.
 
-**Peek mechanic:** The Deck Layer's peek() function is used when a player has a face-down card they are about to flip, allowing the Game Layer to check modifier trigger conditions before the card is officially revealed.
+**Peek mechanic:** The Deck Layer's `peek()` function is used when a player has a face-down card they are about to flip, allowing the Game Layer to check modifier trigger conditions before the card is officially revealed.
+
+**Price schedule:** Configured in house_rules.json under `night_baseball.four_card_price_schedule`. Default is QUARTER_SCHEDULE.
 
 ---
 
 #### JoesBaseballVariant
 
-Joe's Baseball uses the same wild card rules as Night Baseball (3s and 9s wild, 4s grant extra cards) but uses a standard stud-style deal and reveal rather than the self-directed flip mechanic.
+Joe's Baseball is a stud-style game with a fixed set of wild cards, an escalating 4 card buy mechanic, a special winning hand (natural pair of 7s), and a voluntary last card up action.
+
+**Wild cards:** The following cards are wild in Joe's Baseball. These are table-wide wilds, not personal wilds.
+
+```
+2s:               all four 2s are wild
+Jacks:            all four Jacks are wild
+King of Diamonds: the single King of Diamonds is wild
+                  (known as "the man with the axe")
+```
+
+The King of Diamonds is a specific card wild rather than a rank wild. It is handled as a special case: the Game Layer passes `wild_cards: [Card(rank=13, suit=DIAMONDS)]` in addition to `wild_ranks: [2, 11]` in variant_config. Other Kings are not wild.
+
+**Natural Pair of Sevens:**
+
+A natural pair of 7s is the best possible hand in Joe's Baseball. It beats all other hands including hands built with wild cards. Full specification in PokerHandEvaluator Requirements v1.3 Amendment.
+
+The Game Layer passes `natural_sevens_active: True` in variant_config when invoking the evaluator for Joe's Baseball hands.
+
+**4 card mechanic:** When a player is dealt a 4 face-up, the escalating buy mechanic is triggered per the Shared Mechanic section above. The player may buy one additional card from the deck at the current table price or pass. Either way `four_card_buy_count` increments.
+
+**Price schedule:** Configured in house_rules.json under `joes_baseball.four_card_price_schedule`. Default is QUARTER_SCHEDULE.
+
+**TAKE_LAST_CARD_UP in Joe's Baseball:**
+
+Before the river card is dealt face-down, each player is offered the TAKE_LAST_CARD_UP action at no cost. The motivation is to expose the card to the DirtyBitchModifier trigger. A player hoping the river card is the Queen of Spades may elect to take it face-up. If the Queen of Spades appears face-up, the DirtyBitchModifier fires per its normal trigger condition.
 
 **Phase sequence:**
 ```
 SETUP
 ANTE
-INITIAL_DEAL     (2 down, 1 up per player)
+INITIAL_DEAL         (2 down, 1 up per player)
+BET_ROUND            (bring-in from lowest face-up card)
+DEAL_ROUND           (1 up, check for 4s and offer buy)
 BET_ROUND
-DEAL_ROUND       (1 up, standard stud from here)
+DEAL_ROUND           (1 up, check for 4s and offer buy)
 BET_ROUND
-DEAL_ROUND
+DEAL_ROUND           (1 up, check for 4s and offer buy)
 BET_ROUND
-DEAL_ROUND
-BET_ROUND
-DEAL_ROUND       (down)
+TAKE_LAST_UP_OFFER   (each player offered TAKE_LAST_CARD_UP, free)
+DEAL_ROUND           (river: face-down unless TAKE_LAST_CARD_UP taken)
 BET_ROUND
 SHOWDOWN
 POT_DISTRIBUTION
 COMPLETE
 ```
-
-Wild card and 4-card extra draw rules apply identically to Night Baseball but are triggered by the dealer's deal rather than the player's flip choice.
 
 ---
 
@@ -581,7 +742,7 @@ Middle floor: C, G, D
 Bottom floor: E, G, F
 ```
 
-If diagonals_active is True (dealer's discretion, announced at hand start):
+If `diagonals_active` is True (dealer's discretion, announced at hand start):
 
 ```
 Diagonal 1:   A, G, F
@@ -590,7 +751,7 @@ Diagonal 2:   B, G, E
 
 **Community card use rule:** Each player uses exactly two cards from their four hole cards plus exactly three cards from one valid floor selection. The player selects which floor to use at showdown. The evaluator receives the player's four hole cards plus the three floor cards and finds the best five card hand from the resulting seven cards.
 
-**Flip order:** Cards are revealed in the sequence A, B, C, D, E, F with a betting round after each reveal. G is always revealed last. The dramatic final flip of G is the defining moment of the variant. The betting round after G is the final betting round before showdown.
+**Flip order:** Cards are revealed in the sequence A, B, C, D, E, F with a betting round after each reveal. G is always revealed last. The betting round after G is the final betting round before showdown.
 
 **Dealer diagonal announcement:** The dealer announces at hand start whether diagonals are active. This is stored in variant_config on the ActiveGameConfig and communicated to all players via the PlayerView.
 
@@ -665,7 +826,7 @@ COMPLETE
 
 **Card counts:** Players start with 7 cards. After three pass rounds they hold 7 cards again (passed 6, received 6). Best five of seven at showdown.
 
-**Chasing Queens variant:** Chasing Queens is Anaconda with Queens wild. It is implemented as AnacondaVariant with wild_ranks: [12] in variant_config.
+**Chasing Queens variant:** Chasing Queens is Anaconda with Queens wild. It is implemented as AnacondaVariant with `wild_ranks: [12]` in variant_config.
 
 ---
 
@@ -723,7 +884,7 @@ COMPLETE
 
 If multiple players declare in, all hands are evaluated. The player with the best hand wins the pot. All other players who declared in must match the current pot value (the cascade payment).
 
-**Burn limit:** Each player has an individual burn limit configured in house_rules.json (default $6.00). The burn_amounts dict in GutsState tracks cumulative cascade payments per player across all cascade rounds in a session. A player who has reached their burn limit is treated as automatically out for subsequent cascade rounds and may not declare in.
+**Burn limit:** Each player has an individual burn limit configured in house_rules.json (default $6.00). The `burn_amounts` dict in GutsState tracks cumulative cascade payments per player across all cascade rounds in a session. A player who has reached their burn limit is treated as automatically out for subsequent cascade rounds and may not declare in.
 
 **Cascade:** After cascade payments are collected, a new hand is dealt and the declare round repeats. The pot now contains the original pot plus all cascade payments. This continues until exactly one player declares in or all players declare out.
 
@@ -928,6 +1089,8 @@ PotManager {
     add_ante(player_id: str, amount: int) -> None
     add_bet(player_id: str, amount: int) -> None
     add_bid(player_id: str, amount: int) -> None
+    add_buy_payment(player_id: str, amount: int) -> None
+    add_take_last_up_payment(player_id: str, amount: int) -> None
     create_side_pot(all_in_player_id: str) -> None
     apply_cascade_payment(player_id: str, amount: int) -> None
     apply_carry(carry_amount: int) -> None
@@ -937,7 +1100,7 @@ PotManager {
 }
 ```
 
-distribute() returns a dict mapping player_id to amount won. This dict is passed to the Persistence Layer to record chip_ledger entries.
+`distribute()` returns a dict mapping player_id to amount won. This dict is passed to the Persistence Layer to record chip_ledger entries.
 
 ---
 
@@ -999,10 +1162,11 @@ The assertion ensures the bot never submits an illegal action regardless of whic
 The Claude API bot receives a structured natural language prompt including:
 
 - The active variant name and a plain language description of the rules
-- The active modifiers and their current state (e.g. current wild rank from Follow the Queen)
+- The active modifiers and their current state
 - The bot's visible hand and its current evaluated strength
+- The bot's personal wild rank if in Chicago
 - All visible opponent cards and their chip stacks
-- The current pot total and betting state
+- The current pot total, four_card_buy_count, and betting state
 - The legal actions available
 - The bot's chip stack and session history (up or down, by how much)
 - A persona instruction: experienced but not unbeatable home game player
@@ -1033,7 +1197,7 @@ def run_modifier_checks(
     return game_state
 ```
 
-apply_modifier_effect() handles each EffectType:
+`apply_modifier_effect()` handles each EffectType:
 
 ```
 REDEAL:
@@ -1117,22 +1281,60 @@ The following must be covered before the Game Layer is considered complete.
 - Legal actions list contains only valid actions for the current phase and player
 - Legal actions list is empty for folded players
 - Legal actions list is empty for players whose turn it is not
+- OpponentView never includes personal_wild_rank
 
 ### Seven Card Stud
 
 - Bring-in correctly assigned to lowest face-up card
 - Bring-in tie broken by suit order
+- First bet round index derived from phase sequence, not hardcoded
 - 7 cards dealt to each player across all deal rounds
 - Deck exhaustion triggers community river card correctly
 - Showdown evaluates best five of seven correctly
 
+### Chicago
+
+- Personal wild rank correctly set to lowest face-down card rank on initial deal
+- Personal wild rank updates when a lower face-down card is dealt
+- Personal wild rank updates when current wild card is revealed face-up
+- Two face-down cards of equal lowest rank both wild simultaneously
+- Player with no face-down cards has personal_wild_rank of None
+- Wild cards correctly passed per-player to evaluator at showdown
+- Wild cards do not affect high spade split determination
+- Player with high spade and best hand scoops entire pot
+- Player with high spade but not best hand wins only the spade half
+- No spade in hole causes spade half to carry
+- TAKE_LAST_CARD_UP offered before river deal
+- Player taking TAKE_LAST_CARD_UP pays configured cost into pot
+- River card dealt face-up when TAKE_LAST_CARD_UP taken
+- River card dealt face-down when PASS_LAST_CARD_UP selected
+- Personal wild rank unaffected by face-up river card
+
 ### Night Baseball
 
 - Flip mechanic correctly requires beating current high hand or paying to pass
-- 4 card correctly grants one additional face-down card
 - Wild cards 3 and 9 correctly passed to evaluator
 - Standing is irrevocable
 - Player with all cards face-up is automatically standing
+- four_card_buy_count increments on 4 flip regardless of buy or pass
+- Buy price correct for each position in QUARTER_SCHEDULE
+- Buy price correct for each position in DOLLAR_SCHEDULE
+- Buy price caps at final schedule entry for all subsequent 4s
+- Player buying card receives one additional face-down card from deck
+- Buy payment correctly added to pot
+- Player passing buy keeps 4 as non-wild card, no additional card received
+
+### Joe's Baseball
+
+- 2s correctly passed as wild to evaluator
+- Jacks correctly passed as wild to evaluator
+- King of Diamonds correctly passed as wild card to evaluator
+- Other Kings not wild
+- natural_sevens_active correctly True in variant_config
+- Four card buy price escalation identical to Night Baseball
+- TAKE_LAST_CARD_UP offered before river deal at no cost
+- River card dealt face-up when TAKE_LAST_CARD_UP taken
+- DirtyBitchModifier fires correctly when Queen of Spades revealed via TAKE_LAST_CARD_UP
 
 ### Elevator
 
@@ -1209,6 +1411,7 @@ The following must be covered before the Game Layer is considered complete.
 - Bot submitted action always in legal actions list
 - Claude API bot fallback to Tier 1 on timeout
 - Bot burn limit correctly observed in Guts
+- Bot personal wild rank available in Chicago PlayerView
 
 ### Pot Management
 
@@ -1218,6 +1421,9 @@ The following must be covered before the Game Layer is considered complete.
 - Carry amount correctly preserved on redeal
 - Re-ante correctly collected on REDEAL_REANTE effect
 - distribute() correctly allocates main pot and side pots
+- Buy payment correctly added to pot in Night Baseball and Joe's Baseball
+- TAKE_LAST_CARD_UP payment correctly added to pot in Chicago
+- TAKE_LAST_CARD_UP free in Joe's Baseball, no pot change
 
 ---
 
@@ -1229,5 +1435,3 @@ The following must be covered before the Game Layer is considered complete.
 - Evaluator implementation details
 - Deck shuffling or card construction
 - Network or multiplayer concerns
-
----

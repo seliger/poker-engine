@@ -1,6 +1,6 @@
 # PokerHandEvaluator Requirements
 ## Poker Engine: Home Game Edition
-### Version 1.2
+### Version 1.3
 
 ---
 
@@ -39,6 +39,7 @@ The following hand ranks are defined in ascending order of strength. Higher inde
 8   FIVE_OF_A_KIND
 9   STRAIGHT_FLUSH
 10  ROYAL_FLUSH
+11  NATURAL_SEVENS
 ```
 
 ### Notes on Hierarchy
@@ -48,6 +49,66 @@ The following hand ranks are defined in ascending order of strength. Higher inde
 - Four Null cards constitute FOUR_OF_A_KIND at rank zero when nulls_match_each_other is True. This hand loses to any FOUR_OF_A_KIND of rank two or higher but beats any FULL_HOUSE.
 - ROYAL_FLUSH is a special case of STRAIGHT_FLUSH (10-J-Q-K-A of same suit) and is separated for display purposes only. It does not outrank a non-royal STRAIGHT_FLUSH for pot purposes unless the house rules JSON explicitly enables royal_flush_beats_straight_flush. Default is False.
 - With Orbs in play, a Royal Flush of Orbs is valid.
+
+### Additional Note on Hierarchy: NATURAL_SEVENS
+
+NATURAL_SEVENS sits above all other hand ranks including ROYAL_FLUSH.
+It is only possible in Joe's Baseball. It is not a valid hand rank in
+any other variant. The Game Layer passes a natural_sevens_active flag
+to the evaluator via variant_config indicating whether NATURAL_SEVENS
+detection is active. When the flag is False the evaluator never returns
+NATURAL_SEVENS regardless of cards held.
+
+NATURAL_SEVENS requires exactly two physical 7-ranked cards of different
+suits in the player's hand. Wild cards may not substitute for a natural 7.
+Wild card resolution runs after NATURAL_SEVENS detection. If NATURAL_SEVENS
+is detected, wild card resolution is skipped entirely for that hand since
+the result cannot be improved.
+
+A player holding a natural pair of 7s wins outright against all other
+hands. Two players both holding a natural pair of 7s split the pot.
+
+The NATURAL_SEVENS check is a pre-evaluation pass performed before any
+other hand evaluation logic:
+
+```python
+def _check_natural_sevens(
+    cards: list[Card],
+    variant_config: dict
+) -> bool:
+
+    if not variant_config.get("natural_sevens_active", False):
+        return False
+
+    natural_sevens = [
+        c for c in cards
+        if c.rank == 7
+        and not c.is_intrinsic_wild
+    ]
+
+    if len(natural_sevens) < 2:
+        return False
+
+    suits = {c.suit for c in natural_sevens}
+    return len(suits) >= 2
+```
+
+### Additional Unit Tests: Natural Sevens
+
+The following tests must be added to the PokerHandEvaluator test suite:
+
+- NATURAL_SEVENS detected when two physical 7s of different suits present
+- NATURAL_SEVENS not detected when two 7s of the same suit present
+- NATURAL_SEVENS not detected when only one physical 7 present
+- NATURAL_SEVENS not detected when a wild card substitutes for a 7
+- NATURAL_SEVENS not detected when natural_sevens_active is False
+  regardless of cards held
+- NATURAL_SEVENS beats ROYAL_FLUSH in HIGH direction comparison
+- NATURAL_SEVENS beats FIVE_OF_A_KIND in HIGH direction comparison
+- NATURAL_SEVENS beats STRAIGHT_FLUSH in HIGH direction comparison
+- Two NATURAL_SEVENS hands compare as TIE and split the pot
+- Wild card resolution is skipped entirely when NATURAL_SEVENS detected
+- EvaluatedHand display_name is "Natural Pair of Sevens" when detected
 
 ---
 

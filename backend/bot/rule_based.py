@@ -177,6 +177,10 @@ class RuleBasedBot:
             if action_type in action_types:
                 return PlayerAction(action_type=action_type)
 
+        raise ValueError(
+            f"No fallback action found. Available actions: {action_types}"
+        )
+
 
 def get_bot_action(
     game_state: Any,
