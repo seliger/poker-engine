@@ -52,6 +52,10 @@ class ActionType(Enum):
     DISCARD = "DISCARD"
     POST_ANTE = "POST_ANTE"
     POST_BRING_IN = "POST_BRING_IN"
+    TAKE_LAST_CARD_UP = "TAKE_LAST_CARD_UP"
+    PASS_LAST_CARD_UP = "PASS_LAST_CARD_UP"
+    BUY_FOUR_CARD = "BUY_FOUR_CARD"
+    PASS_FOUR_CARD = "PASS_FOUR_CARD"
 
 
 @dataclass
@@ -124,6 +128,7 @@ class PlayerView:
     legal_actions: list[LegalAction]
     community_layout: Any | None = None
     hand_strength: PartialHandStrength | None = None
+    my_personal_wild_rank: int | None = None
 
 
 # ---------------------------------------------------------------------------

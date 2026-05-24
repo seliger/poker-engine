@@ -11,6 +11,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum, IntEnum
+from typing import Any
 
 from backend.deck.card import Card, DeckConfig, Suit
 
@@ -47,6 +48,8 @@ class HandRank(IntEnum):
     ROYAL_FLUSH is separated for display purposes; whether it outranks a
     non-royal STRAIGHT_FLUSH for pot purposes depends on the house rules flag
     royal_flush_beats_straight_flush (default False).
+    NATURAL_SEVENS is only active in Joe's Baseball when natural_sevens_active
+    is True in variant_config; it requires two physical 7s of different suits.
     """
     HIGH_CARD = 0
     ONE_PAIR = 1
@@ -59,6 +62,7 @@ class HandRank(IntEnum):
     FIVE_OF_A_KIND = 8
     STRAIGHT_FLUSH = 9
     ROYAL_FLUSH = 10
+    NATURAL_SEVENS = 11
 
 
 # ---------------------------------------------------------------------------
@@ -129,10 +133,12 @@ class BaseEvaluator(ABC):
         wild_suits: list[Suit] | None = None,
         direction: EvalDirection = EvalDirection.HIGH,
         declaration: Declaration = Declaration.HIGH,
+        **variant_config: Any,
     ) -> BaseEvaluatedHand:
         """Evaluate the best possible hand from the provided cards.
 
         Accepts 2-10 cards.  Fewer than 5 cards produce a partial evaluation.
+        variant_config carries game-specific flags such as natural_sevens_active.
         """
 
     @abstractmethod

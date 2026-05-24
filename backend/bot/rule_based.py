@@ -35,6 +35,7 @@ _HAND_STRENGTH: dict[HandRank, float] = {
     HandRank.FIVE_OF_A_KIND: 0.97,
     HandRank.STRAIGHT_FLUSH: 0.97,
     HandRank.ROYAL_FLUSH: 0.99,
+    HandRank.NATURAL_SEVENS: 1.00,
 }
 
 
@@ -176,6 +177,10 @@ class RuleBasedBot:
         for action_type in (ActionType.FOLD, ActionType.CHECK):
             if action_type in action_types:
                 return PlayerAction(action_type=action_type)
+
+        raise ValueError(
+            f"No fallback action found. Available actions: {action_types}"
+        )
 
 
 def get_bot_action(

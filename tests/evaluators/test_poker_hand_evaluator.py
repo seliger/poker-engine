@@ -746,3 +746,187 @@ class TestPerformance:
         evaluator.evaluate(cards, deck_config)
         elapsed_ms = (time.monotonic() - start) * 1000
         assert elapsed_ms < 500, f"10-card evaluation took {elapsed_ms:.1f}ms"
+
+
+# ---------------------------------------------------------------------------
+# NATURAL_SEVENS (Joe's Baseball, PokerHandEvaluator Amendment v1.3)
+# ---------------------------------------------------------------------------
+
+class TestNaturalSevens:
+    """Tests for the NATURAL_SEVENS hand rank added in Amendment v1.3.
+
+    NATURAL_SEVENS requires two physical (non-wild) 7-ranked cards of different
+    suits when natural_sevens_active=True is passed in variant_config.
+
+    The public check_natural_sevens() static method is used for cases where
+    evaluate() cannot be called (e.g. same-suit duplicates are invalid inputs).
+    """
+
+    def test_detected_two_sevens_different_suits(
+        self, evaluator: PokerHandEvaluator, deck_config: DeckConfig
+    ) -> None:
+        hand = make_hand(
+            (7, Suit.CLUBS), (7, Suit.HEARTS), (1, Suit.SPADES),
+            (13, Suit.DIAMONDS), (9, Suit.CLUBS),
+        )
+        result = evaluator.evaluate(hand, deck_config, natural_sevens_active=True)
+        assert result.hand_rank == HandRank.NATURAL_SEVENS
+
+    def test_not_detected_two_sevens_same_suit(self) -> None:
+        # Two 7♣ are the same card — evaluate() would reject them as duplicates.
+        # Test the public predicate directly instead.
+        seven_clubs = c(7, Suit.CLUBS)
+        cards = [seven_clubs, seven_clubs, c(1, Suit.SPADES)]
+        result = PokerHandEvaluator.check_natural_sevens(
+            cards, {"natural_sevens_active": True}
+        )
+        assert result is False
+
+    def test_not_detected_only_one_physical_seven(
+        self, evaluator: PokerHandEvaluator, deck_config: DeckConfig
+    ) -> None:
+        hand = make_hand(
+            (7, Suit.CLUBS), (1, Suit.SPADES), (13, Suit.DIAMONDS),
+            (9, Suit.HEARTS), (2, Suit.CLUBS),
+        )
+        result = evaluator.evaluate(hand, deck_config, natural_sevens_active=True)
+        assert result.hand_rank != HandRank.NATURAL_SEVENS
+
+    def test_not_detected_when_flag_false(
+        self, evaluator: PokerHandEvaluator, deck_config: DeckConfig
+    ) -> None:
+        hand = make_hand(
+            (7, Suit.CLUBS), (7, Suit.HEARTS), (1, Suit.SPADES),
+            (13, Suit.DIAMONDS), (9, Suit.CLUBS),
+        )
+        result = evaluator.evaluate(hand, deck_config, natural_sevens_active=False)
+        assert result.hand_rank != HandRank.NATURAL_SEVENS
+
+    def test_not_detected_when_flag_absent(
+        self, evaluator: PokerHandEvaluator, deck_config: DeckConfig
+    ) -> None:
+        hand = make_hand(
+            (7, Suit.CLUBS), (7, Suit.HEARTS), (1, Suit.SPADES),
+            (13, Suit.DIAMONDS), (9, Suit.CLUBS),
+        )
+        result = evaluator.evaluate(hand, deck_config)
+        assert result.hand_rank != HandRank.NATURAL_SEVENS
+
+    def test_not_detected_wild_substitutes_for_seven(self) -> None:
+        # Wild 7♣ + physical 7♥ → only one physical seven; must not trigger.
+        wild_seven = Card(rank=7, suit=Suit.CLUBS, is_intrinsic_wild=True)
+        real_seven = c(7, Suit.HEARTS)
+        hand = [wild_seven, real_seven, c(1, Suit.SPADES), c(13, Suit.DIAMONDS), c(9, Suit.CLUBS)]
+        result = PokerHandEvaluator.check_natural_sevens(
+            hand, {"natural_sevens_active": True}
+        )
+        assert result is False
+
+    def test_beats_royal_flush_in_high_direction(
+        self, evaluator: PokerHandEvaluator, deck_config: DeckConfig
+    ) -> None:
+        natural_hand = make_hand(
+            (7, Suit.CLUBS), (7, Suit.HEARTS), (1, Suit.SPADES),
+            (13, Suit.DIAMONDS), (9, Suit.CLUBS),
+        )
+        royal_hand = make_hand(
+            (1, Suit.SPADES), (10, Suit.SPADES), (11, Suit.SPADES),
+            (12, Suit.SPADES), (13, Suit.SPADES),
+        )
+        ns = evaluator.evaluate(natural_hand, deck_config, natural_sevens_active=True)
+        rf = evaluator.evaluate(royal_hand, deck_config)
+        assert evaluator.compare(ns, rf, EvalDirection.HIGH) == ComparisonResult.WIN
+
+    def test_beats_straight_flush_in_high_direction(
+        self, evaluator: PokerHandEvaluator, deck_config: DeckConfig
+    ) -> None:
+        natural_hand = make_hand(
+            (7, Suit.CLUBS), (7, Suit.HEARTS), (1, Suit.SPADES),
+            (13, Suit.DIAMONDS), (9, Suit.CLUBS),
+        )
+        sf_hand = make_hand(
+            (2, Suit.HEARTS), (3, Suit.HEARTS), (4, Suit.HEARTS),
+            (5, Suit.HEARTS), (6, Suit.HEARTS),
+        )
+        ns = evaluator.evaluate(natural_hand, deck_config, natural_sevens_active=True)
+        sf = evaluator.evaluate(sf_hand, deck_config)
+        assert evaluator.compare(ns, sf, EvalDirection.HIGH) == ComparisonResult.WIN
+
+    def test_beats_five_of_a_kind_in_high_direction(
+        self, evaluator: PokerHandEvaluator, deck_config: DeckConfig
+    ) -> None:
+        from backend.evaluators.poker_hand_evaluator import EvaluatedHand
+        natural_hand = make_hand(
+            (7, Suit.CLUBS), (7, Suit.HEARTS), (1, Suit.SPADES),
+            (13, Suit.DIAMONDS), (9, Suit.CLUBS),
+        )
+        ns = evaluator.evaluate(natural_hand, deck_config, natural_sevens_active=True)
+        five_oak = EvaluatedHand(
+            is_partial=False,
+            deck_config=deck_config,
+            display_name="Five of a kind",
+            high_value=999_999,
+            low_value=0,
+            hand_rank=HandRank.FIVE_OF_A_KIND,
+            best_five=[],
+            wild_assignments={},
+            kickers=[],
+            is_null_anchored=False,
+        )
+        assert evaluator.compare(ns, five_oak, EvalDirection.HIGH) == ComparisonResult.WIN
+
+    def test_two_natural_sevens_hands_tie(
+        self, evaluator: PokerHandEvaluator, deck_config: DeckConfig
+    ) -> None:
+        hand_a = make_hand(
+            (7, Suit.CLUBS), (7, Suit.HEARTS), (1, Suit.SPADES),
+            (13, Suit.DIAMONDS), (9, Suit.CLUBS),
+        )
+        hand_b = make_hand(
+            (7, Suit.DIAMONDS), (7, Suit.SPADES), (2, Suit.HEARTS),
+            (10, Suit.CLUBS), (3, Suit.DIAMONDS),
+        )
+        ns_a = evaluator.evaluate(hand_a, deck_config, natural_sevens_active=True)
+        ns_b = evaluator.evaluate(hand_b, deck_config, natural_sevens_active=True)
+        assert evaluator.compare(ns_a, ns_b, EvalDirection.HIGH) == ComparisonResult.TIE
+
+    def test_two_natural_sevens_split_pot(
+        self, evaluator: PokerHandEvaluator, deck_config: DeckConfig
+    ) -> None:
+        hand_a = make_hand(
+            (7, Suit.CLUBS), (7, Suit.HEARTS), (1, Suit.SPADES),
+            (13, Suit.DIAMONDS), (9, Suit.CLUBS),
+        )
+        hand_b = make_hand(
+            (7, Suit.DIAMONDS), (7, Suit.SPADES), (2, Suit.HEARTS),
+            (10, Suit.CLUBS), (3, Suit.DIAMONDS),
+        )
+        ns_a = evaluator.evaluate(hand_a, deck_config, natural_sevens_active=True)
+        ns_b = evaluator.evaluate(hand_b, deck_config, natural_sevens_active=True)
+        result = evaluator.determine_winners(
+            {"alice": ns_a, "bob": ns_b}, EvalDirection.HIGH
+        )
+        assert result.is_tie is True
+        assert result.pot_split is True
+        assert set(result.winners) == {"alice", "bob"}
+
+    def test_display_name_is_natural_pair_of_sevens(
+        self, evaluator: PokerHandEvaluator, deck_config: DeckConfig
+    ) -> None:
+        hand = make_hand(
+            (7, Suit.CLUBS), (7, Suit.HEARTS), (1, Suit.SPADES),
+            (13, Suit.DIAMONDS), (9, Suit.CLUBS),
+        )
+        result = evaluator.evaluate(hand, deck_config, natural_sevens_active=True)
+        assert result.display_name == "Natural Pair of Sevens"
+
+    def test_natural_sevens_detected_in_seven_card_hand(
+        self, evaluator: PokerHandEvaluator, deck_config: DeckConfig
+    ) -> None:
+        hand = make_hand(
+            (7, Suit.CLUBS), (7, Suit.HEARTS), (1, Suit.SPADES),
+            (13, Suit.DIAMONDS), (9, Suit.CLUBS),
+            (2, Suit.HEARTS), (5, Suit.DIAMONDS),
+        )
+        result = evaluator.evaluate(hand, deck_config, natural_sevens_active=True)
+        assert result.hand_rank == HandRank.NATURAL_SEVENS

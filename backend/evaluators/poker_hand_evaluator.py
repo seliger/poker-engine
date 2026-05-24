@@ -118,6 +118,7 @@ _HAND_RANK_DISPLAY: dict[HandRank, str] = {
     HandRank.FIVE_OF_A_KIND: "Five of a kind",
     HandRank.STRAIGHT_FLUSH: "Straight flush",
     HandRank.ROYAL_FLUSH: "Royal flush",
+    HandRank.NATURAL_SEVENS: "Natural Pair of Sevens",
 }
 
 # ---------------------------------------------------------------------------
@@ -181,10 +182,12 @@ class PokerHandEvaluator(BaseEvaluator):
         wild_suits: list[Suit] | None = None,
         direction: EvalDirection = EvalDirection.HIGH,
         declaration: Declaration = Declaration.HIGH,
+        **variant_config: Any,
     ) -> EvaluatedHand:
         """Evaluate the best poker hand from the provided cards.
 
         Accepts 2–10 cards.  Fewer than 5 produce a partial evaluation.
+        variant_config carries game-specific flags such as natural_sevens_active.
         """
         if len(cards) < 2:
             raise InvalidHandError(
@@ -195,6 +198,11 @@ class PokerHandEvaluator(BaseEvaluator):
                 f"At most 10 cards supported; received {len(cards)}"
             )
         self._assert_no_duplicates(cards)
+
+        # NATURAL_SEVENS pre-check: must run before any other evaluation.
+        # Wild card resolution is skipped entirely when NATURAL_SEVENS is detected.
+        if self.check_natural_sevens(cards, variant_config):
+            return self._make_natural_sevens_hand(cards, deck_config)
 
         is_partial = len(cards) < 5
 
@@ -387,6 +395,46 @@ class PokerHandEvaluator(BaseEvaluator):
     # ------------------------------------------------------------------
     # Internal evaluation helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def check_natural_sevens(cards: list[Card], variant_config: dict[str, Any]) -> bool:
+        """Return True when the hand qualifies as NATURAL_SEVENS in Joe's Baseball.
+
+        Requires natural_sevens_active=True in variant_config AND at least two
+        physical (non-wild) 7-ranked cards of different suits.
+        """
+        if not variant_config.get("natural_sevens_active", False):
+            return False
+        physical_sevens = [c for c in cards if c.rank == 7 and not c.is_intrinsic_wild]
+        if len(physical_sevens) < 2:
+            return False
+        suits = {c.suit for c in physical_sevens}
+        return len(suits) >= 2
+
+    def _make_natural_sevens_hand(
+        self,
+        cards: list[Card],
+        deck_config: DeckConfig,
+    ) -> EvaluatedHand:
+        """Return an EvaluatedHand with NATURAL_SEVENS rank.
+
+        high_value=0 for all NATURAL_SEVENS hands so that two such hands
+        compare as TIE (the spec requires pot splitting when both hold a
+        natural pair of 7s).
+        """
+        display_five = cards[:5] if len(cards) >= 5 else cards
+        return EvaluatedHand(
+            is_partial=False,
+            deck_config=deck_config,
+            display_name=_HAND_RANK_DISPLAY[HandRank.NATURAL_SEVENS],
+            high_value=0,
+            low_value=0,
+            hand_rank=HandRank.NATURAL_SEVENS,
+            best_five=display_five,
+            wild_assignments={},
+            kickers=display_five,
+            is_null_anchored=False,
+        )
 
     def _evaluate_exactly_five(
         self,

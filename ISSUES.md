@@ -14,56 +14,115 @@ items in the next step; they are observations for after the merge.
 
 ## Current Status
 
-Phase 1 Step 3 complete. PR under review. Next step after merge: Phase 1
-Step 4 (Persistence Layer: SQLite, chip ledger, session tracking).
+Phase 1 Step 3 merged. Phase 3 review items and Phase 2 confirmation items
+addressed in this session. Next step: Phase 1 Step 4 (Persistence Layer:
+SQLite, chip ledger, session tracking).
+
+Spec updates completed in this session (not yet reflected in any code):
+- docs/02_poker_hand_evaluator.md amended to v1.3 (NATURAL_SEVENS hand rank)
+- docs/05_game_layer.md updated to v1.1 (Chicago personal wild, Joe's Baseball
+  rewrite, Night Baseball escalating buy, TAKE_LAST_CARD_UP shared action,
+  new GameState/PlayerState/ActionType/EventType/GamePhase fields)
+- config/house_rules.json updated to v1.2 (chicago, joes_baseball sections
+  added, night_baseball corrected, joes_baseball wild cards corrected)
 
 ---
 
-## Phase 3 Review - Pending Merge
+## Spec Change Notices - Read Before Phase 4
 
-Items found during Step 3 code review. Address these in Step 4 after merge.
+These are not code review items. They are spec changes that affect Phase 4
+implementation. Claude Code must read the updated documents before
+implementing any Phase 4 variant.
 
-- [ ] **M** `backend/game/variants/seven_card_stud.py` lines 343-345:
-  Bring-in round detection uses `_PHASE_SEQUENCE.index(GamePhase.BET_ROUND)`
-  to find index 3, then separately hardcodes `first_bet_round_index = 3`.
-  These two references can silently diverge if the phase sequence changes.
-  Derive first_bet_round_index from the sequence once and use it as the
-  single source of truth. Remove the hardcoded 3.
+- [ ] **H** Read docs/02_poker_hand_evaluator.md Amendment v1.3 before
+  implementing JoesBaseballVariant. NATURAL_SEVENS is a new hand rank (11)
+  that sits above ROYAL_FLUSH. It requires exactly two physical 7-ranked
+  cards of different suits. Wild cards may not substitute. The evaluator
+  pre-checks for NATURAL_SEVENS before any other evaluation when
+  natural_sevens_active is True in variant_config.
 
-- [ ] **L** `backend/bot/rule_based.py` `_select_action()`: Implicit return
+- [ ] **H** Read docs/05_game_layer.md v1.1 in full before implementing any
+  Phase 4 variant. Key changes from v1.0:
+  - GameState has new field: four_card_buy_count (int, reset to 0 each hand)
+  - PlayerState has new field: personal_wild_rank (int | None)
+  - GamePhase has new value: TAKE_LAST_UP_OFFER
+  - ActionType has new values: TAKE_LAST_CARD_UP, PASS_LAST_CARD_UP,
+    BUY_FOUR_CARD, PASS_FOUR_CARD
+  - EventType has new values: FOUR_CARD_BUY_OFFERED, FOUR_CARD_BUY_ACCEPTED,
+    FOUR_CARD_BUY_PASSED, TAKE_LAST_UP_ACCEPTED, TAKE_LAST_UP_DECLINED
+  - PlayerView has new field: my_personal_wild_rank (int | None)
+  - PotManager has new methods: add_buy_payment(), add_take_last_up_payment()
+
+- [ ] **H** ChicagoVariant is NOT SevenCardStudVariant with a modifier.
+  It requires its own state machine per docs/05_game_layer.md v1.1.
+  Chicago has a personal wild card system (lowest face-down card is wild
+  for that player only), a TAKE_LAST_UP_OFFER phase before the river, and
+  a $1 cost to take the river card face-up. Each player's evaluate() call
+  uses their own personal wild_ranks. This is the only variant where
+  wild_ranks differs per player within the same hand.
+
+- [ ] **H** JoesBaseballVariant wild cards are NOT 3s and 9s. The correct
+  wild cards are: 2s (rank 2), Jacks (rank 11), and King of Diamonds
+  (rank 13, suit DIAMONDS) as a specific card wild. The King of Diamonds
+  is passed as wild_cards in variant_config, not as a wild_rank. Other
+  Kings are not wild. natural_sevens_active must be True in variant_config.
+
+- [ ] **H** NightBaseballVariant 4 card mechanic is an optional escalating
+  buy, not a free automatic extra card. When a 4 is flipped, four_card_buy_count
+  increments immediately, the player is offered BUY_FOUR_CARD or
+  PASS_FOUR_CARD, and the price is determined by the active price schedule
+  from house_rules.json night_baseball.four_card_price_schedule. The player
+  may pass. Either way four_card_buy_count has incremented for the next 4.
+
+- [ ] **M** Read house_rules.json v1.2 before implementing Phase 4 variants.
+  New sections: chicago, joes_baseball. Updated section: night_baseball.
+  The four_card_price_schedules are defined in night_baseball and referenced
+  by joes_baseball. All variant-specific costs and wild card configurations
+  must be read from house_rules.json, never hardcoded.
+
+---
+
+## Phase 3 Review - Resolved
+
+Items found during Step 3 code review. All resolved in this session.
+
+- [x] **M** `backend/game/variants/seven_card_stud.py` lines 343-345:
+  Bring-in round detection used `_PHASE_SEQUENCE.index(GamePhase.BET_ROUND)`
+  to find the index but then separately hardcoded `first_bet_round_index = 3`.
+  Fixed: removed the hardcoded 3 and the unused `is_bring_in_round` variable.
+  `first_bet_round_index` is now derived solely from `_PHASE_SEQUENCE.index()`.
+
+- [x] **L** `backend/bot/rule_based.py` `_select_action()`: Implicit return
   None at the bottom if the fold/check fallback finds no matching action.
-  Since decide() promises to always return a PlayerAction, add an explicit
-  raise ValueError("No fallback action found") as a defensive guard at the
-  end rather than falling through to an implicit None return.
+  Fixed: added explicit `raise ValueError("No fallback action found. Available
+  actions: {action_types}")` as a defensive guard at the end of `_select_action()`.
 
-- [ ] **L** `memory/` folder: Claude Code created its own session continuity
-  system in memory/. This is functional and accurate. Decide whether to
-  keep it in version control or add memory/ to .gitignore. Either is fine.
-  If kept, treat memory/project_phase_status.md as the canonical current
-  status and keep it updated alongside ISSUES.md.
+- [x] **L** `memory/` folder: Claude Code session continuity system. Decision:
+  `memory/` is already listed in `.gitignore` and is excluded from version
+  control. No action required.
 
 ---
 
-## Phase 2 Review - Pending Confirmation
+## Phase 2 Review - Confirmed
 
-Items found during Step 2 code review. Carry into Step 4 if not yet
-addressed. Verify during Step 4 review and move to Completed if resolved.
+Items found during Step 2 code review. Verified in this session.
 
-- [ ] **M** `backend/evaluators/poker_hand_evaluator.py` line 368:
-  Bare `except Exception: continue` in `calculate_hand_frequencies()`
-  silently swallows all errors. Replace with specific exception types or
-  add a logger.warning() so errors surface during development.
+- [x] **M** `backend/evaluators/poker_hand_evaluator.py` line 368:
+  Bare `except Exception: continue` was replaced with `except Exception as exc:`
+  plus `logger.warning(...)` in the existing code. Confirmed resolved.
 
-- [ ] **M** `backend/evaluators/poker_hand_evaluator.py` `_evaluate_best_five()`
-  line 455: `best.all_combinations = all_combos` mutates the EvaluatedHand
-  after construction. Consider building all_combinations into the constructor
-  call rather than setting it after.
+- [x] **M** `backend/evaluators/poker_hand_evaluator.py` `_evaluate_best_five()`:
+  `best.all_combinations = all_combos` post-construction mutation was replaced
+  with `return _dc_replace(best, all_combinations=all_combos)` (dataclasses.replace).
+  Confirmed resolved.
 
 - [ ] **H** `backend/evaluators/poker_hand_evaluator.py` `_from_pk_card()`:
   card_index dict built from input cards only. When wild card resolution
   is added in Phase 3, a wild card may resolve to a card not in the
   original input, causing a KeyError. Extend card_index to cover the full
   deck universe or handle wild assignments separately from PokerKit objects.
+  A `Phase 3 note` comment is already present in the function. Remains open
+  until Phase 3 wild card resolution is implemented.
 
 ---
 
@@ -108,3 +167,21 @@ _Add new items here as they are discovered during code review._
 - [x] **L** `tests/deck/test_deck.py` TestDeckSerialization: Missing pool
   correctness test. test_cards_restored_to_correct_pools added in Step 2.
   Confirmed in Step 2 review.
+
+- [x] **M** `backend/evaluators/poker_hand_evaluator.py` line 368:
+  Bare `except Exception: continue` replaced with `except Exception as exc:`
+  plus `logger.warning(...)`. Confirmed present and correct in Phase 3 review.
+
+- [x] **M** `backend/evaluators/poker_hand_evaluator.py` `_evaluate_best_five()`:
+  Post-construction mutation `best.all_combinations = all_combos` replaced
+  with `_dc_replace(best, all_combinations=all_combos)`. Confirmed in Phase 3 review.
+
+- [x] **M** `backend/game/variants/seven_card_stud.py` bring-in round index:
+  Removed hardcoded `first_bet_round_index = 3` and unused `is_bring_in_round`
+  variable. Index now derived exclusively from `_PHASE_SEQUENCE.index(GamePhase.BET_ROUND)`.
+
+- [x] **L** `backend/bot/rule_based.py` `_select_action()`: Added explicit
+  `raise ValueError("No fallback action found...")` at the end of the method
+  to guard against implicit None return if FOLD and CHECK are both absent.
+
+- [x] **L** `memory/` folder: Already listed in `.gitignore`. No code changes needed.

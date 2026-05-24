@@ -340,9 +340,7 @@ class SevenCardStudVariant(BaseVariant):
         vc = game_state.active_game_config.variant_config
         phase_index: int = vc["phase_index"]
 
-        is_bring_in_round = (phase_index == _PHASE_SEQUENCE.index(GamePhase.BET_ROUND))
-        # phase_index == 3 is the first BET_ROUND (bring-in).
-        first_bet_round_index = 3
+        first_bet_round_index = _PHASE_SEQUENCE.index(GamePhase.BET_ROUND)
 
         if phase_index == first_bet_round_index:
             # Bring-in round: assign bring-in to lowest face-up card.

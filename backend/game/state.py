@@ -85,6 +85,7 @@ class GamePhase(Enum):
     GUTS_CASCADE = "GUTS_CASCADE"
     NUMERIC_DRAW = "NUMERIC_DRAW"
     NUMERIC_BET = "NUMERIC_BET"
+    TAKE_LAST_UP_OFFER = "TAKE_LAST_UP_OFFER"
     DECLARE = "DECLARE"
     SHOWDOWN = "SHOWDOWN"
     POT_DISTRIBUTION = "POT_DISTRIBUTION"
@@ -122,6 +123,11 @@ class EventType(Enum):
     WILD_CHANGED = "WILD_CHANGED"
     MODIFIER_FIRED = "MODIFIER_FIRED"
     DECLARATION_MADE = "DECLARATION_MADE"
+    FOUR_CARD_BUY_OFFERED = "FOUR_CARD_BUY_OFFERED"
+    FOUR_CARD_BUY_ACCEPTED = "FOUR_CARD_BUY_ACCEPTED"
+    FOUR_CARD_BUY_PASSED = "FOUR_CARD_BUY_PASSED"
+    TAKE_LAST_UP_ACCEPTED = "TAKE_LAST_UP_ACCEPTED"
+    TAKE_LAST_UP_DECLINED = "TAKE_LAST_UP_DECLINED"
     SHOWDOWN = "SHOWDOWN"
     POT_AWARDED = "POT_AWARDED"
     REDEAL_TRIGGERED = "REDEAL_TRIGGERED"
@@ -205,6 +211,7 @@ class PlayerState:
     declaration: Any | None = None
     in_guts: bool | None = None
     cards_to_discard: list[Card] = field(default_factory=list)
+    personal_wild_rank: int | None = None
 
 
 @dataclass
@@ -258,6 +265,7 @@ class GameState:
     action_has_occurred: bool = False
     redeal_count: int = 0
     hand_history: list[GameEvent] = field(default_factory=list)
+    four_card_buy_count: int = 0
 
     def active_players(self) -> list[PlayerState]:
         """Return players who have not folded and are not eliminated."""
