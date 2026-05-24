@@ -478,4 +478,7 @@ py. No other file imports PokerKit directly under any circumstances.
 5. Every new module must have a docstring explaining its scope and which 
 layer it belongs to. See existing files for the pattern.
 
+6. Once testing is satisfactory, update the TESTING.md file in the 
+   docs/ folder to include the new tests created as a function of 
+   working through a step in the given phase.
 ---
