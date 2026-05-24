@@ -53,6 +53,21 @@ class PotManager:
         self._contributions[player_id] = self._contributions.get(player_id, 0) + amount
         logger.debug("Bid: %s added %d; pot total=%d", player_id, amount, self.get_total())
 
+    def add_buy_payment(self, player_id: str, amount: int) -> None:
+        """Record a four-card buy payment (Night Baseball / Joe's Baseball)."""
+        self._pot.main_pot += amount
+        self._contributions[player_id] = self._contributions.get(player_id, 0) + amount
+        logger.debug("4-buy: %s paid %d; pot total=%d", player_id, amount, self.get_total())
+
+    def add_take_last_up_payment(self, player_id: str, amount: int) -> None:
+        """Record a take-last-card-up payment (Chicago: $1; Joe's Baseball: free)."""
+        if amount > 0:
+            self._pot.main_pot += amount
+            self._contributions[player_id] = self._contributions.get(player_id, 0) + amount
+        logger.debug(
+            "Take-last-up: %s paid %d; pot total=%d", player_id, amount, self.get_total()
+        )
+
     def apply_cascade_payment(self, player_id: str, amount: int) -> None:
         """Record a Guts cascade payment into the pot."""
         self._pot.main_pot += amount

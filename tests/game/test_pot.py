@@ -191,3 +191,64 @@ class TestDistribution:
         dist = pm.distribute(winner_result)
         # Bob should win the side pot amount too.
         assert dist.get("bob", 0) >= 7
+
+
+# ---------------------------------------------------------------------------
+# Phase 4 pot methods: add_buy_payment, add_take_last_up_payment
+# ---------------------------------------------------------------------------
+
+class TestPhase4PotMethods:
+
+    def test_add_buy_payment_increases_pot(self) -> None:
+        pm = PotManager()
+        pm.add_buy_payment("alice", 1)
+        assert pm.get_total() == 1
+
+    def test_add_buy_payment_tracks_contribution(self) -> None:
+        pm = PotManager()
+        pm.add_buy_payment("alice", 1)
+        pm.add_buy_payment("alice", 2)
+        assert pm.get_total() == 3
+
+    def test_add_buy_payment_multiple_players(self) -> None:
+        pm = PotManager()
+        pm.add_buy_payment("alice", 1)
+        pm.add_buy_payment("bob", 2)
+        assert pm.get_total() == 3
+
+    def test_add_take_last_up_payment_nonzero_increases_pot(self) -> None:
+        pm = PotManager()
+        pm.add_take_last_up_payment("alice", 1)
+        assert pm.get_total() == 1
+
+    def test_add_take_last_up_payment_zero_does_not_change_pot(self) -> None:
+        pm = PotManager()
+        pm.add_take_last_up_payment("alice", 0)
+        assert pm.get_total() == 0
+
+    def test_take_last_up_free_joes_baseball(self) -> None:
+        # Joe's Baseball: take-last-up is free (amount=0), pot must not change.
+        pm = PotManager()
+        pm.add_ante("alice", 2)
+        pm.add_take_last_up_payment("alice", 0)
+        assert pm.get_total() == 2
+
+    def test_take_last_up_paid_chicago(self) -> None:
+        # Chicago: take-last-up costs $1.
+        pm = PotManager()
+        pm.add_ante("alice", 2)
+        pm.add_take_last_up_payment("alice", 1)
+        assert pm.get_total() == 3
+
+    def test_buy_payment_distributable_to_winner(self) -> None:
+        pm = PotManager()
+        pm.add_ante("alice", 2)
+        pm.add_buy_payment("bob", 1)
+        winner_result = WinnerResult(
+            winners=["alice"],
+            winning_hand=_dummy_hand(),
+            is_tie=False,
+            pot_split=False,
+        )
+        dist = pm.distribute(winner_result)
+        assert dist["alice"] == 3
