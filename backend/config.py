@@ -1,7 +1,7 @@
 """House rules configuration loader and validator.
 
-Phase 1 scope: loads the deck section of house_rules.json and returns a
-DeckConfig.  Full house rules validation is added in later phases.
+Phase 1 scope: loads the deck, betting, and bot sections of house_rules.json.
+Full house rules validation is added in later phases.
 """
 
 from __future__ import annotations
@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +23,29 @@ _FALLBACK_CONFIG_PATH = Path(__file__).parent.parent / "config" / "house_rules.j
 
 class HouseRulesConfigurationError(Exception):
     """Raised when house_rules.json is missing, malformed, or invalid."""
+
+
+@dataclass
+class BettingConfig:
+    """Betting amounts loaded from house_rules.json."""
+    ante_amount: int
+    bring_in_amount: int
+    small_bet: int
+    big_bet: int
+
+
+@dataclass
+class BotConfig:
+    """Bot behavior parameters loaded from house_rules.json."""
+    count: int
+    aggression: float
+    bluff_frequency: float
+    risk_tolerance: float
+    personality_variance: float
+    use_monte_carlo: bool
+    use_claude_api: bool
+    claude_model: str
+    claude_api_timeout_seconds: int
 
 
 def _resolve_config_path() -> Path:
@@ -58,7 +82,6 @@ def load_deck_config() -> DeckConfig:
     null_rules: dict[str, Any] = deck_section.get("null_rules", {})
     preset_name: str = deck_section.get("default_config", "STANDARD")
 
-    # Base include_orbs / include_nulls flags come from the named preset.
     _preset_bases: dict[str, dict[str, bool]] = {
         "STANDARD":   {"include_orbs": False, "include_nulls": False},
         "WITH_NULLS": {"include_orbs": False, "include_nulls": True},
@@ -78,4 +101,33 @@ def load_deck_config() -> DeckConfig:
         nulls_match_each_other=null_rules.get("nulls_match_each_other", False),
         wilds_can_become_null=null_rules.get("wilds_can_become_null", False),
         low_card_warning_threshold=deck_section.get("low_card_warning_threshold", 10),
+    )
+
+
+def load_betting_config() -> BettingConfig:
+    """Return a BettingConfig built from house_rules.json, or sensible defaults."""
+    rules = load_house_rules()
+    b: dict[str, Any] = rules.get("betting", {})
+    return BettingConfig(
+        ante_amount=b.get("ante_amount", 1),
+        bring_in_amount=b.get("bring_in_amount", 1),
+        small_bet=b.get("small_bet", 2),
+        big_bet=b.get("big_bet", 4),
+    )
+
+
+def load_bot_config() -> BotConfig:
+    """Return a BotConfig built from house_rules.json, or sensible defaults."""
+    rules = load_house_rules()
+    b: dict[str, Any] = rules.get("bot", {})
+    return BotConfig(
+        count=b.get("count", 5),
+        aggression=b.get("aggression", 0.5),
+        bluff_frequency=b.get("bluff_frequency", 0.15),
+        risk_tolerance=b.get("risk_tolerance", 0.5),
+        personality_variance=b.get("personality_variance", 0.1),
+        use_monte_carlo=b.get("use_monte_carlo", False),
+        use_claude_api=b.get("use_claude_api", False),
+        claude_model=b.get("claude_model", "claude-sonnet-4-20250514"),
+        claude_api_timeout_seconds=b.get("claude_api_timeout_seconds", 5),
     )
