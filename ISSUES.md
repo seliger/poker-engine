@@ -14,8 +14,9 @@ items in the next step; they are observations for after the merge.
 
 ## Current Status
 
-Phase 1 Step 4 complete. PR ready to merge. Next step after merge: Phase 1
-Step 5 (REST API Layer: Flask routes, WebSocket, session/hand/chip endpoints).
+Phase 1 Step 5 complete. All 366 tests pass. PR ready to merge. Next step
+after merge: Phase 2 (Modifier System). Read docs/00_architecture_overview.md
+and docs/05_game_layer.md v1.1 before implementing Phase 2.
 
 Spec updates completed (reflected in docs/ and config/):
 - docs/02_poker_hand_evaluator.md amended to v1.3 (NATURAL_SEVENS hand rank)
@@ -147,6 +148,21 @@ _Add new items here as they are discovered during code review._
 ---
 
 ## Completed Items
+
+- [x] **H** Phase 1 Step 5: REST API Layer implemented.
+  `backend/app.py` (Flask app factory, SocketIO, CORS, error handlers),
+  `backend/api/routes/session.py` (POST /start, POST /end, GET /current),
+  `backend/api/routes/hand.py` (POST /start, GET /state, POST /action, GET /result),
+  `backend/api/routes/chips.py` (GET /balance, GET /ledger, GET /ledger/all),
+  `backend/api/routes/reference.py` (GET /hands, GET /variant),
+  `backend/api/routes/config.py` (GET /, POST /, GET /variants, GET /modifiers).
+  52 new tests. Also fixed SevenCardStudVariant._distribute_pot() to short-circuit
+  when only 1 player remains (all others folded), preventing partial-hand showdown
+  evaluation. All 366 tests pass.
+
+- [x] **M** `docs/TESTING.md` updated for Phase 1 Step 5: REST API Layer section
+  added (session, hand, chip, websocket sub-areas), test count table updated to
+  366 total (api 52 new), all file locations documented.
 
 - [x] **M** `backend/evaluators/poker_hand_evaluator.py` line 368:
   `except Exception: continue` in `calculate_hand_frequencies()`. Fixed in
