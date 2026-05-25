@@ -104,6 +104,45 @@ action outside the legal list), strong hand prefers betting, weak hand
 prefers fold, check preferred over fold when free, bot view never contains
 other players' face-down cards, and bot action always in legal list.
 
+### Persistence Layer
+
+```bash
+python -m pytest tests/persistence/
+```
+
+Covers the SQLite persistence layer in three sub-areas:
+
+```bash
+python -m pytest tests/persistence/test_database.py
+```
+Database path resolution (POKER_DB_PATH env var override, default path,
+Path return type), connection settings (Row factory, WAL journal mode,
+foreign key enforcement), parent directory auto-creation, schema
+initialization (all five tables created, idempotent on second call, column
+names verified, composite primary key on hand_players).
+
+```bash
+python -m pytest tests/persistence/test_ledger.py
+```
+record_chip_movement (row inserted, delta and balance stored, row id
+returned), get_player_balance (most recent balance returned, zero when
+no entries), get_session_ledger (all rows for session ordered by id),
+get_player_ledger (all rows for player across all sessions ordered by id,
+excludes other players).
+
+```bash
+python -m pytest tests/persistence/test_history.py
+```
+get_or_create_player (new player created, same id on second call,
+distinct ids for distinct names, is_bot flag stored, created_at set),
+get_player / list_players (None for unknown, dict with expected keys,
+ordered by name), start_session / end_session / get_session /
+get_current_session (lifecycle, ended_at set, most recent open session
+returned, ignores ended sessions), start_hand / end_hand / get_hand /
+update_hand_wild_ranks (lifecycle, pot_total and redeal_count stored,
+wild_ranks updated mid-hand), record_hand_player (INSERT OR REPLACE
+idempotency, won_high/won_low stored as integers), get_hand_players.
+
 ---
 
 ## Running a Single Test File
@@ -201,14 +240,15 @@ The HTML report is written to `htmlcov/` in the project root. Open
 
 ## Test Count by Phase
 
-As of Phase 1 Step 3:
+As of Phase 1 Step 4:
 
 ```
-tests/deck/           58 tests    Card, DeckConfig, Deck
-tests/evaluators/     58 tests    PokerHandEvaluator
-tests/game/           62 tests    Betting, Pot, Visibility, SevenCardStud
-tests/bot/            10 tests    RuleBasedBot
-Total                188 tests
+tests/deck/            81 tests    Card, DeckConfig, Deck
+tests/evaluators/      70 tests    PokerHandEvaluator (incl. NATURAL_SEVENS)
+tests/game/            57 tests    Betting, Pot, Visibility, SevenCardStud
+tests/bot/             10 tests    RuleBasedBot
+tests/persistence/     96 tests    Database, Ledger, History
+Total                 314 tests
 ```
 
 Note: counts will grow as new phases add evaluators, variants, and layers.
@@ -247,6 +287,10 @@ tests/
             test_poulet.py              (Phase 6)
     bot/
         test_rule_based.py
+    persistence/
+        test_database.py            SQLite connection and schema
+        test_ledger.py              chip_ledger operations
+        test_history.py             player/session/hand/hand_players CRUD
     api/
         test_session_endpoints.py       (Phase 1 Step 5)
         test_hand_endpoints.py          (Phase 1 Step 5)
