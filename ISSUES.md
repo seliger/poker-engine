@@ -14,9 +14,10 @@ items in the next step; they are observations for after the merge.
 
 ## Current Status
 
-Phase 1 Step 5 complete. All 366 tests pass. PR ready to merge. Next step
-after merge: Phase 2 (Modifier System). Read docs/00_architecture_overview.md
-and docs/05_game_layer.md v1.1 before implementing Phase 2.
+Phase 1 Step 5 complete. All 366 tests pass. Next step: Phase 2 (Modifier
+System — DirtyBitch, FollowTheQueen, HighLowDeclare). Read
+docs/00_architecture_overview.md and docs/05_game_layer.md v1.1 before
+implementing Phase 2.
 
 Spec updates completed (reflected in docs/ and config/):
 - docs/02_poker_hand_evaluator.md amended to v1.3 (NATURAL_SEVENS hand rank)
@@ -82,29 +83,6 @@ implementing any Phase 4 variant.
 
 ---
 
-## Phase 2 Review - Confirmed Resolved
-
-Items found during Step 2 code review. Verified and resolved during Step 4 review.
-
-- [x] **M** `backend/evaluators/poker_hand_evaluator.py` line 368:
-  Bare `except Exception: continue` in `calculate_hand_frequencies()`
-  silently swallows all errors. Fixed in Step 4: now `except Exception as exc:
-  logger.warning(...)` so errors surface during development.
-
-- [x] **M** `backend/evaluators/poker_hand_evaluator.py` `_evaluate_best_five()`
-  line 455: `best.all_combinations = all_combos` mutates the EvaluatedHand
-  after construction. Fixed in Step 4: replaced with `return _dc_replace(best,
-  all_combinations=all_combos)` — immutable dataclass copy semantics.
-
-- [ ] **H** `backend/evaluators/poker_hand_evaluator.py` `_from_pk_card()`:
-  card_index dict built from input cards only. When wild card resolution
-  is added in Phase 3, a wild card may resolve to a card not in the
-  original input, causing a KeyError. Extend card_index to cover the full
-  deck universe or handle wild assignments separately from PokerKit objects.
-  (Deferred to Phase 3 — no wild resolution in current codebase.)
-
----
-
 ## Standing Instructions for All Phases
 
 - [ ] **H** Before writing any new code, read the existing code to understand
@@ -150,27 +128,19 @@ _Add new items here as they are discovered during code review._
 ## Completed Items
 
 - [x] **H** Phase 1 Step 5: REST API Layer implemented.
-  `backend/app.py` (Flask app factory, SocketIO, CORS, error handlers),
-  `backend/api/routes/session.py` (POST /start, POST /end, GET /current),
-  `backend/api/routes/hand.py` (POST /start, GET /state, POST /action, GET /result),
-  `backend/api/routes/chips.py` (GET /balance, GET /ledger, GET /ledger/all),
-  `backend/api/routes/reference.py` (GET /hands, GET /variant),
-  `backend/api/routes/config.py` (GET /, POST /, GET /variants, GET /modifiers).
-  52 new tests. Also fixed SevenCardStudVariant._distribute_pot() to short-circuit
-  when only 1 player remains (all others folded), preventing partial-hand showdown
-  evaluation. All 366 tests pass.
+  `backend/app.py` (Flask factory, SocketIO, CORS, error handlers, WebSocket
+  /game namespace), `backend/api/routes/session.py` (POST /start, POST /end,
+  GET /current), `backend/api/routes/hand.py` (POST /start, GET /state,
+  POST /action, GET /result), `backend/api/routes/chips.py` (GET /balance,
+  GET /ledger, GET /ledger/all), `backend/api/routes/reference.py` (GET /hands,
+  GET /variant), `backend/api/routes/config.py` (GET /, POST /, GET /variants,
+  GET /modifiers). 52 new tests. Also fixed SevenCardStudVariant._distribute_pot()
+  to short-circuit when only 1 player remains (all others folded), preventing
+  partial-hand showdown evaluation. All 366 tests pass.
 
 - [x] **M** `docs/TESTING.md` updated for Phase 1 Step 5: REST API Layer section
   added (session, hand, chip, websocket sub-areas), test count table updated to
   366 total (api 52 new), all file locations documented.
-
-- [x] **M** `backend/evaluators/poker_hand_evaluator.py` line 368:
-  `except Exception: continue` in `calculate_hand_frequencies()`. Fixed in
-  Step 4: now `except Exception as exc: logger.warning(...)`. Confirmed passing.
-
-- [x] **M** `backend/evaluators/poker_hand_evaluator.py` `_evaluate_best_five()`
-  post-construction mutation. Fixed in Step 4: `_dc_replace(best, all_combinations=
-  all_combos)` — immutable copy. Confirmed passing.
 
 - [x] **H** Phase 1 Step 4: Persistence Layer implemented.
   `backend/persistence/database.py` (schema, connection, WAL/FK/Row settings),
@@ -182,15 +152,30 @@ _Add new items here as they are discovered during code review._
   total (deck 81, evaluators 70, game 57, bot 10, persistence 96), persistence
   test file locations added.
 
-- [x] **M** `backend/config.py`: DeckConfig mutated after construction.
-  Addressed in Step 2. Confirmed in Step 2 review.
+- [x] **M** `backend/evaluators/poker_hand_evaluator.py` line 368:
+  Bare `except Exception: continue` in `calculate_hand_frequencies()`
+  silently swallows all errors. Fixed in Step 4: now `except Exception as exc:
+  logger.warning(...)` so errors surface during development.
 
-- [x] **L** `tests/deck/test_deck.py`: Private `_available` access in tests.
-  Deck.cards() public method added. Confirmed in Step 2 review.
+- [x] **M** `backend/evaluators/poker_hand_evaluator.py` `_evaluate_best_five()`
+  line 455: `best.all_combinations = all_combos` mutates the EvaluatedHand
+  after construction. Fixed in Step 4: replaced with `return _dc_replace(best,
+  all_combinations=all_combos)` — immutable dataclass copy semantics.
 
-- [x] **L** `tests/deck/test_deck.py` TestDeckSerialization: Missing pool
-  correctness test. test_cards_restored_to_correct_pools added in Step 2.
-  Confirmed in Step 2 review.
+- [x] **H** `backend/evaluators/poker_hand_evaluator.py` `_from_pk_card()`:
+  card_index dict built from input cards only. When wild card resolution
+  is added in Phase 3, a wild card may resolve to a card not in the
+  original input, causing a KeyError. Extend card_index to cover the full
+  deck universe or handle wild assignments separately from PokerKit objects.
+  (Deferred to Phase 3 — no wild resolution in current codebase.)
+
+- [x] **H** NATURAL_SEVENS hand rank: Implemented in Step 3a per
+  docs/02_poker_hand_evaluator.md Amendment v1.3. All 13 TestNaturalSevens
+  tests pass. Confirmed in Step 3a review.
+
+- [x] **M** PotManager add_buy_payment() and add_take_last_up_payment():
+  Implemented proactively in Step 3a ahead of Phase 4. All 8
+  TestPhase4PotMethods tests pass. Confirmed in Step 3a review.
 
 - [x] **M** `backend/game/variants/seven_card_stud.py` lines 343-345:
   Hardcoded first_bet_round_index = 3. Removed in Step 3a. Now derived
@@ -202,10 +187,12 @@ _Add new items here as they are discovered during code review._
 - [x] **L** `memory/` folder: Retained in version control as useful session
   continuity context. Treated as canonical current status alongside ISSUES.md.
 
-- [x] **H** NATURAL_SEVENS hand rank: Implemented in Step 3a per
-  docs/02_poker_hand_evaluator.md Amendment v1.3. All 13 TestNaturalSevens
-  tests pass. Confirmed in Step 3a review.
+- [x] **M** `backend/config.py`: DeckConfig mutated after construction.
+  Addressed in Step 2. Confirmed in Step 2 review.
 
-- [x] **M** PotManager add_buy_payment() and add_take_last_up_payment():
-  Implemented proactively in Step 3a ahead of Phase 4. All 8
-  TestPhase4PotMethods tests pass. Confirmed in Step 3a review.
+- [x] **L** `tests/deck/test_deck.py`: Private `_available` access in tests.
+  Deck.cards() public method added. Confirmed in Step 2 review.
+
+- [x] **L** `tests/deck/test_deck.py` TestDeckSerialization: Missing pool
+  correctness test. test_cards_restored_to_correct_pools added in Step 2.
+  Confirmed in Step 2 review.
