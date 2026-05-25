@@ -14,7 +14,7 @@ items in the next step; they are observations for after the merge.
 
 ## Current Status
 
-Phase 1 Step 4 complete. PR under review. Next step after merge: Phase 1
+Phase 1 Step 4 complete. PR ready to merge. Next step after merge: Phase 1
 Step 5 (REST API Layer: Flask routes, WebSocket, session/hand/chip endpoints).
 
 Spec updates completed (reflected in docs/ and config/):
@@ -81,7 +81,7 @@ implementing any Phase 4 variant.
 
 ---
 
-## Phase 2 Review - Pending Confirmation
+## Phase 2 Review - Confirmed Resolved
 
 Items found during Step 2 code review. Verified and resolved during Step 4 review.
 
@@ -160,6 +160,11 @@ _Add new items here as they are discovered during code review._
   `backend/persistence/database.py` (schema, connection, WAL/FK/Row settings),
   `backend/persistence/ledger.py` (chip_ledger CRUD), `backend/persistence/history.py`
   (player/session/hand/hand_players CRUD). 96 new tests. All 314 tests pass.
+
+- [x] **M** `docs/TESTING.md` updated for Phase 1 Step 4: Persistence Layer section
+  added (database, ledger, history sub-areas), test count table updated to 314
+  total (deck 81, evaluators 70, game 57, bot 10, persistence 96), persistence
+  test file locations added.
 
 - [x] **M** `backend/config.py`: DeckConfig mutated after construction.
   Addressed in Step 2. Confirmed in Step 2 review.
