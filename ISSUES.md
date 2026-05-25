@@ -6,16 +6,60 @@ Check off items as they are addressed. Add new items as they are discovered.
 
 Format: phase discovered, file/location, description, priority (H/M/L).
 
-**Workflow:** Items move from "Review Pending Merge" to "Completed" only
-after the PR is merged and confirmed. Do not action "Review Pending Merge"
-items in the next step; they are observations for after the merge.
+**Workflow:** Items move to "Completed" only after the PR is merged and
+confirmed. "Pending Merge" items are observations for after the merge,
+not tasks for the next step.
 
 ---
 
 ## Current Status
 
-Phase 1 Step 4 complete. PR ready to merge. Next step after merge: Phase 1
-Step 5 (REST API Layer: Flask routes, WebSocket, session/hand/chip endpoints).
+Phase 1 complete. All 366 tests pass. PRs merged.
+Next: Phase 2 Step 1 (GameModifier interface and modifier hook in Game Layer).
+
+Do NOT begin any frontend or UI work. The SvelteKit frontend is Phase 7.
+Phases 2 through 6 are all backend only.
+
+Build order reminder:
+- Phase 2: Modifier System (next)
+  - Step 1: GameModifier interface and modifier hook in Game Layer
+  - Step 2: HighLowDeclareModifier
+  - Step 3: FollowTheQueenModifier
+  - Step 4: DirtyBitchModifier
+  - Step 5: Modifier selection exposed via REST API
+- Phase 3: Deck Extensions (Nulls, Orbs, wild cards)
+  - Step 1: Deck Layer WITH_NULLS config
+  - Step 2: PokerHandEvaluator Null card evaluation rules
+  - Step 3: Deck Layer WITH_ORBS config
+  - Step 4: PokerHandEvaluator Orbs awareness
+  - Step 5: PokerHandEvaluator wild card resolution
+- Phase 4: Variant Expansion (all remaining poker variants)
+  - Step 1: Five Card Draw
+  - Step 2: Chicago and Low Chicago
+  - Step 3: Night Baseball and Joe's Baseball
+  - Step 4: Guts with burn limit and cascade logic
+  - Step 5: Criss-Cross and Roll Your Own
+  - Step 6: Elevator
+  - Step 7: Pilot
+  - Step 8: Anaconda and Chasing Queens
+  - Step 9: Auction
+  - Step 10: Screw Your Neighbor (includes SingleCardEvaluator)
+- Phase 5: Numeric Variants 
+  - Step 1: NumericEvaluator
+  - Step 2: Seven/Twenty-Seven
+  - Step 3: Six-and-a-Half/Twenty-one-and-a-Half
+- Phase 6: Trick-Taking Variants (Poulet)
+  - Step 1: TrickTakingEvaluator 
+  - Step 2: PouletVariant state machine 
+  - Step 3: Follow suit enforcement 
+  - Step 4: Trump reveal and stay-in declaration via REST API
+- Phase 7: Polish and SvelteKit frontend
+  - Step 1: Hand reference card with frequency adjustment 
+  - Step 2: Tier 2 Monte Carlo bot 
+  - Step 3: Claude API bot (optional)
+  - Step 4: SvelteKit frontend (UI Layer)
+  - Step 5: Configuration UI in frontend 
+  - Step 6: Session history and statistics view
 
 Spec updates completed (reflected in docs/ and config/):
 - docs/02_poker_hand_evaluator.md amended to v1.3 (NATURAL_SEVENS hand rank)
@@ -51,7 +95,7 @@ implementing any Phase 4 variant.
     FOUR_CARD_BUY_PASSED, TAKE_LAST_UP_ACCEPTED, TAKE_LAST_UP_DECLINED
   - PlayerView has new field: my_personal_wild_rank (int | None)
   - PotManager has new methods: add_buy_payment(), add_take_last_up_payment()
-    (Note: these are already implemented and tested as of Step 3a.)
+    (already implemented and tested as of Phase 1)
 
 - [ ] **H** ChicagoVariant is NOT SevenCardStudVariant with a modifier.
   It requires its own state machine per docs/05_game_layer.md v1.1.
@@ -81,45 +125,46 @@ implementing any Phase 4 variant.
 
 ---
 
-## Phase 2 Review - Confirmed Resolved
-
-Items found during Step 2 code review. Verified and resolved during Step 4 review.
-
-- [x] **M** `backend/evaluators/poker_hand_evaluator.py` line 368:
-  Bare `except Exception: continue` in `calculate_hand_frequencies()`
-  silently swallows all errors. Fixed in Step 4: now `except Exception as exc:
-  logger.warning(...)` so errors surface during development.
-
-- [x] **M** `backend/evaluators/poker_hand_evaluator.py` `_evaluate_best_five()`
-  line 455: `best.all_combinations = all_combos` mutates the EvaluatedHand
-  after construction. Fixed in Step 4: replaced with `return _dc_replace(best,
-  all_combinations=all_combos)` — immutable dataclass copy semantics.
+## Open - Deferred to Phase 3
 
 - [ ] **H** `backend/evaluators/poker_hand_evaluator.py` `_from_pk_card()`:
   card_index dict built from input cards only. When wild card resolution
   is added in Phase 3, a wild card may resolve to a card not in the
   original input, causing a KeyError. Extend card_index to cover the full
   deck universe or handle wild assignments separately from PokerKit objects.
-  (Deferred to Phase 3 — no wild resolution in current codebase.)
+  Deferred: no wild resolution in current codebase yet.
+
+---
+
+## Open - Deferred to Phase 2 Step 5
+
+- [ ] **L** `backend/api/game_manager.py` `_on_hand_complete()`:
+  Balance computed as `ledger.get_player_balance() + delta`. Correct for a
+  single-user synchronous app but relies on no concurrent writes between
+  the read and the write. Document this assumption explicitly in the method
+  docstring so future developers understand why this is safe. No code change
+  needed unless concurrency is ever introduced.
 
 ---
 
 ## Standing Instructions for All Phases
 
 - [ ] **H** Before writing any new code, read the existing code to understand
-  patterns already established. Extend these patterns consistently rather
+  patterns already established. Extend those patterns consistently rather
   than reinventing them.
 
 - [ ] **H** Do not access private attributes (leading underscore) in test
-  files. If a private attribute needs to be inspected in a test, add a
-  public method or property to the class and test through that instead.
+  files. If inspection is needed, add a public method or property instead.
 
-- [ ] **H** No async/await anywhere. If you find yourself reaching for async,
-  stop and find a synchronous solution.
+- [ ] **H** No async/await anywhere in the Python backend. If you find
+  yourself reaching for async, stop and find a synchronous solution.
 
 - [ ] **H** PokerKit is imported only in
   `backend/evaluators/poker_hand_evaluator.py`. No other file imports
   PokerKit directly under any circumstances.
+
+- [ ] **H** Do NOT begin any SvelteKit or frontend work. The UI layer is
+  Phase 7. All remaining phases through Phase 6 are backend only.
 
 - [ ] **M** Every new module must have a docstring explaining its scope and
   which layer it belongs to. See existing files for the pattern.
@@ -129,18 +174,16 @@ Items found during Step 2 code review. Verified and resolved during Step 4 revie
 ## Architectural Considerations (Future, No Immediate Action)
 
 - [ ] **L** `backend/evaluators/poker_hand_evaluator.py`: NATURAL_SEVENS
-  detection is currently implemented inside PokerHandEvaluator gated by
-  the natural_sevens_active flag in variant_config. This works correctly
-  but introduces variant-specific logic into a general-purpose evaluator.
+  detection is implemented inside PokerHandEvaluator gated by the
+  natural_sevens_active flag in variant_config. Works correctly but
+  introduces variant-specific logic into a general-purpose evaluator.
   If additional variant-specific special cases are added in the future,
-  consider refactoring to a JoesBaseballEvaluator subclass that extends
-  PokerHandEvaluator and overrides evaluate() to pre-check for natural
-  sevens before delegating to the parent. No action needed now. Revisit
-  if the pattern recurs.
+  consider refactoring to a JoesBaseballEvaluator subclass. No action
+  needed now. Revisit if the pattern recurs.
 
 ---
 
-## Items Discovered During Review (Add Phase Here)
+## Items Discovered During Review (Add Here)
 
 _Add new items here as they are discovered during code review._
 
@@ -148,48 +191,45 @@ _Add new items here as they are discovered during code review._
 
 ## Completed Items
 
-- [x] **M** `backend/evaluators/poker_hand_evaluator.py` line 368:
-  `except Exception: continue` in `calculate_hand_frequencies()`. Fixed in
-  Step 4: now `except Exception as exc: logger.warning(...)`. Confirmed passing.
+- [x] **H** Phase 1 Step 5: REST API Layer implemented.
+  backend/app.py (Flask factory, SocketIO, CORS, error handlers, WebSocket
+  /game namespace), all route modules (session, hand, chips, reference,
+  config), backend/api/game_manager.py. 52 new tests. Also fixed
+  SevenCardStudVariant._distribute_pot() to short-circuit when only 1
+  player remains. All 366 tests pass.
 
-- [x] **M** `backend/evaluators/poker_hand_evaluator.py` `_evaluate_best_five()`
-  post-construction mutation. Fixed in Step 4: `_dc_replace(best, all_combinations=
-  all_combos)` — immutable copy. Confirmed passing.
+- [x] **M** docs/TESTING.md updated for Phase 1 Step 5.
 
 - [x] **H** Phase 1 Step 4: Persistence Layer implemented.
-  `backend/persistence/database.py` (schema, connection, WAL/FK/Row settings),
-  `backend/persistence/ledger.py` (chip_ledger CRUD), `backend/persistence/history.py`
-  (player/session/hand/hand_players CRUD). 96 new tests. All 314 tests pass.
+  database.py (schema, WAL/FK/Row), ledger.py (chip_ledger CRUD),
+  history.py (player/session/hand/hand_players CRUD). 96 new tests.
+  All 314 tests pass.
 
-- [x] **M** `docs/TESTING.md` updated for Phase 1 Step 4: Persistence Layer section
-  added (database, ledger, history sub-areas), test count table updated to 314
-  total (deck 81, evaluators 70, game 57, bot 10, persistence 96), persistence
-  test file locations added.
+- [x] **M** docs/TESTING.md updated for Phase 1 Step 4.
 
-- [x] **M** `backend/config.py`: DeckConfig mutated after construction.
-  Addressed in Step 2. Confirmed in Step 2 review.
+- [x] **M** backend/evaluators/poker_hand_evaluator.py bare except in
+  calculate_hand_frequencies(). Fixed: logger.warning() on exception.
 
-- [x] **L** `tests/deck/test_deck.py`: Private `_available` access in tests.
-  Deck.cards() public method added. Confirmed in Step 2 review.
+- [x] **M** backend/evaluators/poker_hand_evaluator.py _evaluate_best_five()
+  post-construction mutation. Fixed: immutable copy via _dc_replace().
 
-- [x] **L** `tests/deck/test_deck.py` TestDeckSerialization: Missing pool
-  correctness test. test_cards_restored_to_correct_pools added in Step 2.
-  Confirmed in Step 2 review.
+- [x] **H** NATURAL_SEVENS hand rank implemented. All 13 tests pass.
 
-- [x] **M** `backend/game/variants/seven_card_stud.py` lines 343-345:
-  Hardcoded first_bet_round_index = 3. Removed in Step 3a. Now derived
-  from phase sequence as single source of truth. Confirmed passing.
+- [x] **M** PotManager add_buy_payment() and add_take_last_up_payment()
+  implemented proactively. 8 tests pass.
 
-- [x] **L** `backend/bot/rule_based.py` `_select_action()`: Implicit None
-  return. Explicit raise ValueError added in Step 3a. Confirmed passing.
+- [x] **M** backend/game/variants/seven_card_stud.py hardcoded
+  first_bet_round_index = 3. Fixed: derived from phase sequence.
 
-- [x] **L** `memory/` folder: Retained in version control as useful session
-  continuity context. Treated as canonical current status alongside ISSUES.md.
+- [x] **L** backend/bot/rule_based.py _select_action() implicit None return.
+  Fixed: explicit raise ValueError.
 
-- [x] **H** NATURAL_SEVENS hand rank: Implemented in Step 3a per
-  docs/02_poker_hand_evaluator.md Amendment v1.3. All 13 TestNaturalSevens
-  tests pass. Confirmed in Step 3a review.
+- [x] **L** memory/ folder retained in version control.
 
-- [x] **M** PotManager add_buy_payment() and add_take_last_up_payment():
-  Implemented proactively in Step 3a ahead of Phase 4. All 8
-  TestPhase4PotMethods tests pass. Confirmed in Step 3a review.
+- [x] **M** backend/config.py DeckConfig mutated after construction. Fixed.
+
+- [x] **L** tests/deck/test_deck.py private _available access. Fixed:
+  Deck.cards() public method added.
+
+- [x] **L** tests/deck/test_deck.py missing pool correctness serialization
+  test. Fixed: test_cards_restored_to_correct_pools added.

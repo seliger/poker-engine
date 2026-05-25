@@ -435,6 +435,18 @@ class SevenCardStudVariant(BaseVariant):
 
     def _distribute_pot(self, game_state: GameState) -> None:
         """Resolve the showdown and award chips to winners."""
+        active = game_state.active_players()
+
+        # All others folded: award pot directly without evaluating partial hands.
+        if len(active) == 1 and self._pot_manager is not None:
+            winner = active[0]
+            total = self._pot_manager.get_total()
+            if total > 0:
+                winner.chip_stack += total
+                game_state.record_event(EventType.POT_AWARDED, winner.player_id, amount=total)
+            game_state.pot = self._pot_manager.get_pot()
+            return
+
         result = self.resolve_showdown(game_state)
 
         for player_id, amount in result.pot_distribution.items():

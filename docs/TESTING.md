@@ -104,6 +104,56 @@ action outside the legal list), strong hand prefers betting, weak hand
 prefers fold, check preferred over fold when free, bot view never contains
 other players' face-down cards, and bot action always in legal list.
 
+### REST API Layer
+
+```bash
+python -m pytest tests/api/
+```
+
+Covers Flask REST endpoints, WebSocket handlers, and the GameManager
+integration in four sub-areas:
+
+```bash
+python -m pytest tests/api/test_session_endpoints.py
+```
+POST /api/session/start (200 with valid body, player_id assignment, human
+not marked as bot, 400 for empty human_players, 400 for missing JSON body,
+400 for missing name field, envelope shape, session replacement on restart),
+POST /api/session/end (summary returned, 409 when no session),
+GET /api/session/current (session state returned, 404 when no session,
+hand_in_progress initially false).
+
+```bash
+python -m pytest tests/api/test_hand_endpoints.py
+```
+POST /api/hand/start (401 missing header, 401 unknown player, 200 success,
+400 invalid variant, 400 missing variant, 409 hand already in progress,
+envelope shape), GET /api/hand/state (401 missing header, 200 player view
+shape, information asymmetry — opponent face-down cards never exposed,
+409 no hand in progress), POST /api/hand/action (401 missing header, 400
+missing action_type, 200 action accepted, 422 illegal action),
+GET /api/hand/result (401 missing header, 404 no completed hand).
+
+```bash
+python -m pytest tests/api/test_chip_endpoints.py
+```
+GET /api/chips/balance (401 missing header, 200 with balances dict,
+required fields present, positive default stack), GET /api/chips/ledger
+(401 missing header, 200 with entries/total/limit/offset, 400 invalid limit,
+default pagination values), GET /api/chips/ledger/all (401 missing header,
+200 with entries, required entry fields).
+
+```bash
+python -m pytest tests/api/test_websocket.py
+```
+WebSocket connection: known player connects successfully, unknown player
+rejected, empty player_id rejected. WebSocket action submission: valid
+action does not crash server, invalid action type emits error_event.
+Config/reference endpoints: GET /api/config returns 200, GET /api/config/variants
+returns variant list, GET /api/config/modifiers returns modifier list,
+GET /api/reference/hands returns 10 rankings, GET /api/reference/variant
+returns rules summary.
+
 ### Persistence Layer
 
 ```bash
@@ -240,7 +290,7 @@ The HTML report is written to `htmlcov/` in the project root. Open
 
 ## Test Count by Phase
 
-As of Phase 1 Step 4:
+As of Phase 1 Step 5:
 
 ```
 tests/deck/            81 tests    Card, DeckConfig, Deck
@@ -248,7 +298,8 @@ tests/evaluators/      70 tests    PokerHandEvaluator (incl. NATURAL_SEVENS)
 tests/game/            57 tests    Betting, Pot, Visibility, SevenCardStud
 tests/bot/             10 tests    RuleBasedBot
 tests/persistence/     96 tests    Database, Ledger, History
-Total                 314 tests
+tests/api/             52 tests    Session, Hand, Chip, WebSocket endpoints
+Total                 366 tests
 ```
 
 Note: counts will grow as new phases add evaluators, variants, and layers.
