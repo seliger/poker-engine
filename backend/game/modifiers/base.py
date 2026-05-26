@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 from backend.deck.card import Card
 
 if TYPE_CHECKING:
-    from backend.game.state import GameState
+    from backend.game.state import GamePhase, GameState
 
 logger = logging.getLogger(__name__)
 
@@ -56,8 +56,8 @@ class GameModifier(ABC):
     They are checked after every card deal or reveal event via
     run_modifier_hook(). The modifier system is bypassed for POULET.
 
-    Concrete implementations: DirtyBitchModifier (Step 2),
-    FollowTheQueenModifier (Step 3), HighLowDeclareModifier (Step 4).
+    Concrete implementations: HighLowDeclareModifier (Step 2),
+    FollowTheQueenModifier (Step 3), DirtyBitchModifier (Step 4).
     """
 
     @abstractmethod
@@ -67,6 +67,19 @@ class GameModifier(ABC):
     @abstractmethod
     def execute_effect(self, game_state: GameState) -> ModifierEffect:
         """Produce the ModifierEffect for this modifier when triggered."""
+
+    def get_phase_injection(
+        self,
+        upcoming_phase: "GamePhase",
+        game_state: "GameState",
+    ) -> "GamePhase | None":
+        """Return a phase to inject before upcoming_phase, or None.
+
+        Called by variants before advancing to each new phase. A modifier
+        may use this to insert an intermediate phase (e.g., DECLARE before
+        SHOWDOWN). The default returns None — no injection.
+        """
+        return None
 
 
 # Populated by concrete modifier modules in Phase 2 Steps 2-4.

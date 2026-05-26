@@ -14,52 +14,54 @@ not tasks for the next step.
 
 ## Current Status
 
-Phase 2 Step 1 complete. All 400 tests pass.
-Next: Phase 2 Step 2 (HighLowDeclareModifier).
+Phase 2 Step 2 complete. All 427 tests pass.
+Next: Phase 2 Step 3 (FollowTheQueenModifier).
 
 Do NOT begin any frontend or UI work. The SvelteKit frontend is Phase 7.
 Phases 2 through 6 are all backend only.
 
 Build order reminder:
+
 - Phase 2: Modifier System
-  - Step 1: GameModifier interface and modifier hook in Game Layer ✓
-  - Step 2: HighLowDeclareModifier
-  - Step 3: FollowTheQueenModifier
-  - Step 4: DirtyBitchModifier
-  - Step 5: Modifier selection exposed via REST API
-- Phase 3: Deck Extensions (Nulls, Orbs, wild cards)
-  - Step 1: Deck Layer WITH_NULLS config
-  - Step 2: PokerHandEvaluator Null card evaluation rules
-  - Step 3: Deck Layer WITH_ORBS config
-  - Step 4: PokerHandEvaluator Orbs awareness
-  - Step 5: PokerHandEvaluator wild card resolution
-- Phase 4: Variant Expansion (all remaining poker variants)
-  - Step 1: Five Card Draw
-  - Step 2: Chicago and Low Chicago
-  - Step 3: Night Baseball and Joe's Baseball
-  - Step 4: Guts with burn limit and cascade logic
-  - Step 5: Criss-Cross and Roll Your Own
-  - Step 6: Elevator
-  - Step 7: Pilot
-  - Step 8: Anaconda and Chasing Queens
-  - Step 9: Auction
-  - Step 10: Screw Your Neighbor (includes SingleCardEvaluator)
-- Phase 5: Numeric Variants 
-  - Step 1: NumericEvaluator
-  - Step 2: Seven/Twenty-Seven
-  - Step 3: Six-and-a-Half/Twenty-one-and-a-Half
-- Phase 6: Trick-Taking Variants (Poulet)
-  - Step 1: TrickTakingEvaluator 
-  - Step 2: PouletVariant state machine 
-  - Step 3: Follow suit enforcement 
-  - Step 4: Trump reveal and stay-in declaration via REST API
-- Phase 7: Polish and SvelteKit frontend
-  - Step 1: Hand reference card with frequency adjustment 
-  - Step 2: Tier 2 Monte Carlo bot 
-  - Step 3: Claude API bot (optional)
-  - Step 4: SvelteKit frontend (UI Layer)
-  - Step 5: Configuration UI in frontend 
-  - Step 6: Session history and statistics view
+    - Step 1: GameModifier interface and modifier hook (COMPLETE)
+    - Step 2: HighLowDeclareModifier (COMPLETE)
+    - Step 3: FollowTheQueenModifier (next)
+    - Step 3: FollowTheQueenModifier
+    - Step 4: DirtyBitchModifier
+    - Step 5: Modifier selection exposed via REST API
+- Phase 3: Deck Extensions
+    - Step 1: Deck Layer WITH_NULLS config
+    - Step 2: PokerHandEvaluator Null card evaluation rules
+    - Step 3: Deck Layer WITH_ORBS config
+    - Step 4: PokerHandEvaluator Orbs awareness
+    - Step 5: PokerHandEvaluator wild card resolution
+- Phase 4: Variant Expansion
+    - Step 1: Five Card Draw
+    - Step 2: Chicago and Low Chicago
+    - Step 3: Night Baseball and Joe's Baseball
+    - Step 4: Guts with burn limit and cascade logic
+    - Step 5: Criss-Cross and Roll Your Own
+    - Step 6: Elevator
+    - Step 7: Pilot
+    - Step 8: Anaconda and Chasing Queens
+    - Step 9: Auction
+    - Step 10: Screw Your Neighbor (includes SingleCardEvaluator)
+- Phase 5: Numeric Variants
+    - Step 1: NumericEvaluator
+    - Step 2: Seven/Twenty-Seven
+    - Step 3: Six-and-a-Half/Twenty-one-and-a-Half
+- Phase 6: Trick-Taking Variants
+    - Step 1: TrickTakingEvaluator
+    - Step 2: PouletVariant state machine
+    - Step 3: Follow suit enforcement
+    - Step 4: Trump reveal and stay-in declaration via REST API
+- Phase 7: Polish and SvelteKit frontend (NOT YET)
+    - Step 1: Hand reference card with frequency adjustment
+    - Step 2: Tier 2 Monte Carlo bot
+    - Step 3: Claude API bot (optional)
+    - Step 4: SvelteKit frontend
+    - Step 5: Configuration UI in frontend
+    - Step 6: Session history and statistics view
 
 Spec updates completed (reflected in docs/ and config/):
 - docs/02_poker_hand_evaluator.md amended to v1.3 (NATURAL_SEVENS hand rank)
@@ -136,14 +138,13 @@ implementing any Phase 4 variant.
 
 ---
 
-## Open - Deferred to Phase 2 Step 5
+## Open - Address in Phase 2 Step 5
 
 - [ ] **L** `backend/api/game_manager.py` `_on_hand_complete()`:
   Balance computed as `ledger.get_player_balance() + delta`. Correct for a
   single-user synchronous app but relies on no concurrent writes between
   the read and the write. Document this assumption explicitly in the method
-  docstring so future developers understand why this is safe. No code change
-  needed unless concurrency is ever introduced.
+  docstring. No code change needed unless concurrency is ever introduced.
 
 ---
 
@@ -191,30 +192,31 @@ _Add new items here as they are discovered during code review._
 
 ## Completed Items
 
-- [x] **H** Phase 2 Step 1: GameModifier interface and modifier hook implemented.
-  backend/game/modifiers/base.py (EffectType, PotInstruction, ModifierEffect,
-  GameModifier abstract class, MODIFIER_REGISTRY, apply_modifier_effect(),
-  run_modifier_hook()). Modifier hook wired into GameManager._drive_to_interactive()
-  and GameManager.submit_action(). Bypassed for POULET. modifier_stacking read
-  from house_rules.json. 34 new tests. All 400 tests pass.
+- [x] **H** Phase 2 Step 2: HighLowDeclareModifier.
+  backend/game/modifiers/high_low_declare.py: HighLowDeclareModifier with
+  get_phase_injection() injecting DECLARE before SHOWDOWN. SevenCardStudVariant
+  updated with DECLARE phase execution, get_legal_actions, apply_action,
+  is_phase_complete, advance_phase injection, _distribute_with_declare() with
+  scoop-or-bust enforcement. GameManager._drive_to_interactive() handles DECLARE
+  as interactive phase. RuleBasedBot handles DECLARE_HIGH/LOW/BOTH. 27 new tests
+  (7 unit + 4 registry + 16 integration). All 427 tests pass.
 
-- [x] **M** docs/TESTING.md updated for Phase 2 Step 1.
+- [x] **H** Phase 2 Step 1: GameModifier interface and modifier hook.
+  backend/game/modifiers/base.py: GameModifier ABC, EffectType, PotInstruction,
+  ModifierEffect, MODIFIER_REGISTRY (empty, populated in Steps 2-4),
+  apply_modifier_effect(), run_modifier_hook(). 34 new tests covering
+  all enums, abstract interface, stacking behavior, Poulet bypass, face-down
+  card exclusion, and event history scanning. All 400 tests pass.
 
-- [x] **H** Phase 1 Step 5: REST API Layer implemented.
-  backend/app.py (Flask factory, SocketIO, CORS, error handlers, WebSocket
-  /game namespace), all route modules (session, hand, chips, reference,
-  config), backend/api/game_manager.py. 52 new tests. Also fixed
-  SevenCardStudVariant._distribute_pot() to short-circuit when only 1
-  player remains. All 366 tests pass.
+- [x] **L** SQLite thread safety: check_same_thread=False added to
+  sqlite3.connect() in backend/persistence/database.py. Server starts
+  cleanly with flask --app backend.app run.
 
-- [x] **M** docs/TESTING.md updated for Phase 1 Step 5.
+- [x] **H** Phase 1 Step 5: REST API Layer implemented. All routes, WebSocket,
+  app factory, game_manager. 52 new tests. 366 total passing.
 
-- [x] **H** Phase 1 Step 4: Persistence Layer implemented.
-  database.py (schema, WAL/FK/Row), ledger.py (chip_ledger CRUD),
-  history.py (player/session/hand/hand_players CRUD). 96 new tests.
-  All 314 tests pass.
-
-- [x] **M** docs/TESTING.md updated for Phase 1 Step 4.
+- [x] **H** Phase 1 Step 4: Persistence Layer implemented. database.py,
+  ledger.py, history.py. 96 new tests. 314 total passing.
 
 - [x] **M** backend/evaluators/poker_hand_evaluator.py bare except in
   calculate_hand_frequencies(). Fixed: logger.warning() on exception.
@@ -237,8 +239,6 @@ _Add new items here as they are discovered during code review._
 
 - [x] **M** backend/config.py DeckConfig mutated after construction. Fixed.
 
-- [x] **L** tests/deck/test_deck.py private _available access. Fixed:
-  Deck.cards() public method added.
+- [x] **L** tests/deck/test_deck.py private _available access. Fixed.
 
-- [x] **L** tests/deck/test_deck.py missing pool correctness serialization
-  test. Fixed: test_cards_restored_to_correct_pools added.
+- [x] **L** tests/deck/test_deck.py missing pool correctness test. Fixed.
