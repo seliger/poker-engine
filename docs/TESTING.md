@@ -92,26 +92,45 @@ distribution, seven cards dealt across all streets, river card face-down,
 deck exhaustion community river fallback, showdown evaluation, tied
 showdown, phase sequence structure, and single-player advance behavior.
 
-### Modifier System (Phase 2 Step 1)
+### Modifier System (Phase 2 Steps 1-2)
 
 ```bash
 python -m pytest tests/game/test_modifiers.py
 ```
 
-Covers the GameModifier interface and modifier hook: EffectType enum values,
-PotInstruction enum values, ModifierEffect dataclass fields, GameModifier
-abstract class (cannot instantiate, concrete subclass works, trigger_condition
-and execute_effect callable), MODIFIER_REGISTRY (is dict, empty in Step 1,
-values are GameModifier subclasses), apply_modifier_effect (NO_OP records
-MODIFIER_FIRED event and returns unchanged state, non-NO_OP raises
-NotImplementedError with event still recorded), run_modifier_hook (empty
-modifiers is no-op, POULET skipped even with modifier, no new events is
-no-op, events before snapshot ignored, non-deal events do not trigger,
-modifier fires on CARD_DEALT event, modifier fires on CARD_REVEALED event,
-never-fire modifier does not call execute_effect, face-down deal without
-card object skipped, no-stacking stops after first fire, stacking allows
-both modifiers to fire, no-stacking stops after first matching card per
-modifier, stacking fires for each matching card, returns updated state).
+Covers the GameModifier interface, modifier hook, and HighLowDeclareModifier:
+
+**Step 1 — interface and hook:** EffectType enum values, PotInstruction enum
+values, ModifierEffect dataclass fields, GameModifier abstract class (cannot
+instantiate, concrete subclass works, trigger_condition and execute_effect
+callable), MODIFIER_REGISTRY (is dict, has HIGH_LOW_DECLARE, values are
+GameModifier subclasses), apply_modifier_effect (NO_OP records MODIFIER_FIRED
+event and returns unchanged state, non-NO_OP raises NotImplementedError with
+event still recorded), run_modifier_hook (empty modifiers is no-op, POULET
+skipped even with modifier, no new events is no-op, events before snapshot
+ignored, non-deal events do not trigger, modifier fires on CARD_DEALT event,
+modifier fires on CARD_REVEALED event, never-fire modifier does not call
+execute_effect, face-down deal without card object skipped, no-stacking stops
+after first fire, stacking allows both modifiers to fire, no-stacking stops
+after first matching card per modifier, stacking fires for each matching card,
+returns updated state).
+
+**Step 2 — HighLowDeclareModifier:** trigger_condition always False,
+execute_effect returns NO_OP with requires_player_action=True,
+get_phase_injection returns DECLARE before SHOWDOWN, returns None for
+non-SHOWDOWN phases, returns None after declare_done=True, both_ways_requires_scoop
+defaults True and is configurable, is a GameModifier subclass.
+
+**Step 2 — Integration (SevenCardStudVariant + HighLowDeclareModifier):**
+DECLARE phase injected before SHOWDOWN, not injected when declare_done=True,
+legal actions during DECLARE (HIGH/LOW/BOTH for active player, empty for
+others), DECLARE_HIGH/LOW/BOTH stored on PlayerState, DECLARATION_MADE event
+recorded, active_player_index advances after declaration, is_phase_complete
+True when all declared and False when some undeclared, advance_phase from
+DECLARE sets declare_done and advances to SHOWDOWN, pot split correctly between
+HIGH and LOW declarants, scoop-or-bust: BOTH winner who wins both scoops pot,
+scoop-or-bust: BOTH declarant who fails gets nothing (others win their halves),
+scoop-or-bust disabled allows partial wins.
 
 ### Bot Layer
 
@@ -311,16 +330,16 @@ The HTML report is written to `htmlcov/` in the project root. Open
 
 ## Test Count by Phase
 
-As of Phase 2 Step 1:
+As of Phase 2 Step 2:
 
 ```
 tests/deck/            81 tests    Card, DeckConfig, Deck
 tests/evaluators/      70 tests    PokerHandEvaluator (incl. NATURAL_SEVENS)
-tests/game/            91 tests    Betting, Pot, Visibility, SevenCardStud, Modifiers
+tests/game/           118 tests    Betting, Pot, Visibility, SevenCardStud, Modifiers
 tests/bot/             10 tests    RuleBasedBot
 tests/persistence/     96 tests    Database, Ledger, History
 tests/api/             52 tests    Session, Hand, Chip, WebSocket endpoints
-Total                 400 tests
+Total                 427 tests
 ```
 
 Note: counts will grow as new phases add evaluators, variants, and layers.

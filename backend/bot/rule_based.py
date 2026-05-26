@@ -139,11 +139,21 @@ class RuleBasedBot:
     ) -> PlayerAction:
         """Map effective hand score + personality to a concrete PlayerAction.
 
-        Three tiers:
+        DECLARE phase: bot prefers HIGH, then BOTH; falls back to LOW.
+        Betting phase — three tiers:
           Strong  (score >= bet_threshold)  → bet or raise
           Medium  (score >= call_threshold) → call or check
           Weak    (score <  call_threshold) → fold if possible, else check
         """
+        # DECLARE phase: prefer HIGH; use score to decide BOTH vs HIGH.
+        if ActionType.DECLARE_HIGH in action_types:
+            if effective_score >= 0.7 and ActionType.DECLARE_BOTH in action_types:
+                return PlayerAction(action_type=ActionType.DECLARE_BOTH)
+            return PlayerAction(action_type=ActionType.DECLARE_HIGH)
+        if ActionType.DECLARE_LOW in action_types:
+            return PlayerAction(action_type=ActionType.DECLARE_LOW)
+        if ActionType.DECLARE_BOTH in action_types:
+            return PlayerAction(action_type=ActionType.DECLARE_BOTH)
         p = self._personality
         # Higher aggression → willing to bet/raise with weaker hands.
         bet_threshold = 0.75 - (p.aggression * 0.35)

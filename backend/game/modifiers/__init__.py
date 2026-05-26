@@ -1,8 +1,7 @@
 """Game Layer modifier system package.
 
-Exports the public modifier interface: GameModifier, ModifierEffect,
-EffectType, PotInstruction, MODIFIER_REGISTRY, apply_modifier_effect(),
-and run_modifier_hook(). Concrete modifiers are added in Phase 2 Steps 2-4.
+Exports the public modifier interface and all concrete modifier implementations.
+MODIFIER_REGISTRY is populated here to avoid circular imports in base.py.
 """
 
 from backend.game.modifiers.base import (
@@ -14,11 +13,16 @@ from backend.game.modifiers.base import (
     apply_modifier_effect,
     run_modifier_hook,
 )
+from backend.game.modifiers.high_low_declare import HighLowDeclareModifier
+
+# Populate registry: concrete modifiers added in Phase 2 Steps 2-4.
+MODIFIER_REGISTRY["HIGH_LOW_DECLARE"] = HighLowDeclareModifier
 
 __all__ = [
     "MODIFIER_REGISTRY",
     "EffectType",
     "GameModifier",
+    "HighLowDeclareModifier",
     "ModifierEffect",
     "PotInstruction",
     "apply_modifier_effect",

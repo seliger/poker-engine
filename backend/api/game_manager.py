@@ -683,29 +683,33 @@ class GameManager:
     def _drive_to_interactive(self, socketio: Any = None) -> None:
         """Advance game state until the next human action is required or the hand ends.
 
-        Case 1 (entered mid-BET_ROUND): runs bot turns until the human player
-        is active or the betting round completes.
+        Case 1 (entered mid-interactive phase): runs bot turns until the human
+        player is active or the phase completes. Interactive phases are BET_ROUND
+        and DECLARE.
 
         The outer loop advances through non-interactive phases (SETUP, ANTE,
         INITIAL_DEAL, DEAL_ROUND, SHOWDOWN, POT_DISTRIBUTION) and handles
-        BET_ROUND setup and bot execution until either a human must act or
-        the hand reaches COMPLETE.
+        interactive-phase setup and bot execution until either a human must act
+        or the hand reaches COMPLETE.
         """
+        _INTERACTIVE_PHASES = {GamePhase.BET_ROUND, GamePhase.DECLARE}
+
         if self._game_state is None or self._variant is None:
             return
 
-        # Case 1: currently mid-BET_ROUND (after a human action that didn't end the round,
-        # or at the start of a hand when the bring-in round is already set up).
-        if self._game_state.phase == GamePhase.BET_ROUND:
-            while not self._variant.is_phase_complete(self._game_state, GamePhase.BET_ROUND):
+        # Case 1: currently mid-interactive phase (after a human action that didn't
+        # end the phase, or at hand start when bring-in is already set up).
+        if self._game_state.phase in _INTERACTIVE_PHASES:
+            current_phase = self._game_state.phase
+            while not self._variant.is_phase_complete(self._game_state, current_phase):
                 current = self._game_state.players[self._game_state.active_player_index]
                 if not current.is_bot:
                     return  # human's turn
                 self._execute_bot_action(current, socketio)
-            # Betting round complete: advance to next phase and fall through.
+            # Phase complete: advance to next phase and fall through.
             self._game_state = self._variant.advance_phase(self._game_state)
 
-        # Outer loop: execute non-interactive phases; set up and run BET_ROUNDs.
+        # Outer loop: execute non-interactive phases; set up and run interactive phases.
         while True:
             if self._game_state is None:
                 return
@@ -719,7 +723,7 @@ class GameManager:
                 self._on_hand_complete(socketio)
                 return
 
-            if phase != GamePhase.BET_ROUND:
+            if phase not in _INTERACTIVE_PHASES:
                 # Non-interactive phase: execute it, run modifier hook, and advance.
                 event_idx = len(self._game_state.hand_history)
                 self._game_state = self._variant.execute_phase(self._game_state, phase)
@@ -727,17 +731,17 @@ class GameManager:
                 self._game_state = self._variant.advance_phase(self._game_state)
                 continue
 
-            # New BET_ROUND: execute setup (increments round counter, assigns first player).
-            self._game_state = self._variant.execute_phase(self._game_state, GamePhase.BET_ROUND)
+            # Interactive phase (BET_ROUND or DECLARE): execute setup, then run bots.
+            self._game_state = self._variant.execute_phase(self._game_state, phase)
 
-            # Run bots until human is active or round completes.
-            while not self._variant.is_phase_complete(self._game_state, GamePhase.BET_ROUND):
+            # Run bots until human is active or phase completes.
+            while not self._variant.is_phase_complete(self._game_state, phase):
                 current = self._game_state.players[self._game_state.active_player_index]
                 if not current.is_bot:
                     return  # human's turn: wait for submit_action
                 self._execute_bot_action(current, socketio)
 
-            # Betting round complete: advance and continue outer loop.
+            # Phase complete: advance and continue outer loop.
             self._game_state = self._variant.advance_phase(self._game_state)
 
     def _execute_bot_action(
