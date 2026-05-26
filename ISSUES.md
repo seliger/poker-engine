@@ -14,15 +14,15 @@ not tasks for the next step.
 
 ## Current Status
 
-Phase 1 complete. All 366 tests pass. PRs merged.
-Next: Phase 2 Step 1 (GameModifier interface and modifier hook in Game Layer).
+Phase 2 Step 1 complete. All 400 tests pass.
+Next: Phase 2 Step 2 (HighLowDeclareModifier).
 
 Do NOT begin any frontend or UI work. The SvelteKit frontend is Phase 7.
 Phases 2 through 6 are all backend only.
 
 Build order reminder:
-- Phase 2: Modifier System (next)
-  - Step 1: GameModifier interface and modifier hook in Game Layer
+- Phase 2: Modifier System
+  - Step 1: GameModifier interface and modifier hook in Game Layer ✓
   - Step 2: HighLowDeclareModifier
   - Step 3: FollowTheQueenModifier
   - Step 4: DirtyBitchModifier
@@ -190,6 +190,15 @@ _Add new items here as they are discovered during code review._
 ---
 
 ## Completed Items
+
+- [x] **H** Phase 2 Step 1: GameModifier interface and modifier hook implemented.
+  backend/game/modifiers/base.py (EffectType, PotInstruction, ModifierEffect,
+  GameModifier abstract class, MODIFIER_REGISTRY, apply_modifier_effect(),
+  run_modifier_hook()). Modifier hook wired into GameManager._drive_to_interactive()
+  and GameManager.submit_action(). Bypassed for POULET. modifier_stacking read
+  from house_rules.json. 34 new tests. All 400 tests pass.
+
+- [x] **M** docs/TESTING.md updated for Phase 2 Step 1.
 
 - [x] **H** Phase 1 Step 5: REST API Layer implemented.
   backend/app.py (Flask factory, SocketIO, CORS, error handlers, WebSocket

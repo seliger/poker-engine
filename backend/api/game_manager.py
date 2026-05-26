@@ -27,6 +27,7 @@ from backend.bot.rule_based import RuleBasedBot, get_bot_action
 from backend.config import load_betting_config, load_bot_config, load_house_rules
 from backend.deck.card import DeckConfig
 from backend.deck.deck import Deck
+from backend.game.modifiers.base import run_modifier_hook
 from backend.game.state import (
     ActiveGameConfig,
     BettingState,
@@ -500,7 +501,9 @@ class GameManager:
             )
 
         action = PlayerAction(action_type=action_type, amount=amount)
+        event_idx = len(self._game_state.hand_history)
         self._game_state = self._variant.apply_action(self._game_state, player_id, action)
+        self._game_state = self._run_modifier_hook(self._game_state, event_idx)
 
         if self._variant.is_phase_complete(self._game_state, self._game_state.phase):
             self._game_state = self._variant.advance_phase(self._game_state)
@@ -669,6 +672,14 @@ class GameManager:
     # Internal: game driving
     # ------------------------------------------------------------------
 
+    def _run_modifier_hook(
+        self, game_state: GameState, event_index_before: int
+    ) -> GameState:
+        """Load modifier_stacking from house rules and run the modifier hook."""
+        rules = load_house_rules()
+        modifier_stacking: bool = rules.get("modifiers", {}).get("modifier_stacking", False)
+        return run_modifier_hook(game_state, event_index_before, modifier_stacking)
+
     def _drive_to_interactive(self, socketio: Any = None) -> None:
         """Advance game state until the next human action is required or the hand ends.
 
@@ -709,8 +720,10 @@ class GameManager:
                 return
 
             if phase != GamePhase.BET_ROUND:
-                # Non-interactive phase: execute it and advance.
+                # Non-interactive phase: execute it, run modifier hook, and advance.
+                event_idx = len(self._game_state.hand_history)
                 self._game_state = self._variant.execute_phase(self._game_state, phase)
+                self._game_state = self._run_modifier_hook(self._game_state, event_idx)
                 self._game_state = self._variant.advance_phase(self._game_state)
                 continue
 
